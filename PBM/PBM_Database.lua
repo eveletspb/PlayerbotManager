@@ -162,6 +162,12 @@ function PBM.LoadStatic(index)
     local snapshot = statics[tonumber(index)]
     if not snapshot or type(snapshot.members) ~= "table" then return false end
 
+    if snapshot.raidName and snapshot.raidName ~= "" then
+        LichborneTrackerDB.raidName = snapshot.raidName
+    end
+    if snapshot.raidTier ~= nil then
+        LichborneTrackerDB.raidTier = tonumber(snapshot.raidTier) or LichborneTrackerDB.raidTier or 0
+    end
     local roster = PBM.GetCurrentRoster()
     local size = tonumber(snapshot.raidSize) or LichborneTrackerDB.raidSize or 5
     size = math.max(1, math.min(PBM.MAX_RAID_SLOTS, math.floor(size)))

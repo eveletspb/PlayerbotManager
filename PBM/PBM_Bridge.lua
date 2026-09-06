@@ -468,8 +468,8 @@ function PBM.ApplyBridgeGear(botName, gear)
     local row = LichborneTrackerDB.rows[rowIndex]
     row.ilvl = gear.ilvl or row.ilvl or {}
     row.ilvlLink = gear.ilvlLink or row.ilvlLink or {}
-    row.gs = gear.score or row.gs or 0
-    row.realGs = gear.realGs or 0
+    if (gear.score or 0) > 0 then row.gs = gear.score end
+    if (gear.realGs or 0) > 0 then row.realGs = gear.realGs end
 
     if row.name and LichborneTrackerDB.raidRosters then
         for _, roster in pairs(LichborneTrackerDB.raidRosters) do

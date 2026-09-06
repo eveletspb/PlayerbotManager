@@ -685,6 +685,9 @@ function PBM.BuildRaidFrame(parent, fl)
         UpdateRaidDD(hex)
     end
     UpdateTierDD()
+    PBM.RefreshRaidSelectionUI = function()
+        UpdateTierDD()
+    end
 
     -- Raid label
     local raidLbl = tierBar:CreateFontString(nil,"OVERLAY","GameFontNormal")
@@ -1060,6 +1063,10 @@ function PBM.BuildRaidFrame(parent, fl)
     end)
 
     -- ── Saved statics ───────────────────────────────────────────────────
+    -- Static management lives in the dedicated Statics tab.  Keep the old
+    -- implementation disabled here so legacy saved data remains available
+    -- without creating controls in the Raid header.
+    if false then
     local staticMenu = CreateFrame("Frame", "LichborneStaticMenu", UIParent)
     staticMenu:SetFrameStrata("DIALOG")
     staticMenu:SetSize(320, 30)
@@ -1353,6 +1360,7 @@ function PBM.BuildRaidFrame(parent, fl)
         GameTooltip:Show()
     end)
     inviteStaticBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
 
     -- Column headers row
     local hdrRow = CreateFrame("Frame",nil,LichborneRaidFrame)

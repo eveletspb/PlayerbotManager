@@ -16,6 +16,7 @@ PBM.State.LichborneGroupScanActive = false
 
 local INSPECT_MAX_RETRIES = 6
 local CACHE_MAX_RETRIES = 6
+local SHOULDER_RETRY_MAX = 2
 
 local function CalcGS()
     local di = PBM.State.LichborneInspectTarget
@@ -24,6 +25,7 @@ local function CalcGS()
     if di ~= PBM.State.lastCalcGsDi then
         PBM.State.LichborneInspectRetries = 0
         PBM.State.LichborneCacheRetries = 0
+        PBM.State.LichborneShoulderRetries = 0
         PBM.State.lastCalcGsDi = di
     end
     local inspUnit = PBM.State.LichborneInspectUnit or "target"
@@ -50,6 +52,7 @@ local function CalcGS()
     end
 
     local anyPending = false
+    local shoulderMissing = false
     local linkCount, cachedCount, uncachedCount, emptyCount, zeroIlvlCount = 0, 0, 0, 0, 0
     local slotDiag = {}
 
@@ -72,6 +75,15 @@ local function CalcGS()
             slotDiag[g] = string.format("%-5s", PBM.SLOT_ABBR[g]).."(s17)=|cff888888[2H-OH]|r"
         else
             local link = GetInventoryItemLink(inspUnit, slot)
+            -- Some 3.3.5 clients expose the inspected item ID before the
+            -- complete item link becomes available.  Keep the slot instead
+            -- of treating it as empty, which is especially common for slot 3.
+            if not link and GetInventoryItemID then
+                local itemId = GetInventoryItemID(inspUnit, slot)
+                if itemId and itemId > 0 then
+                    link = "item:"..itemId..":0:0:0:0:0:0:0"
+                end
+            end
             if link then
                 linkCount = linkCount + 1
                 local itemName, _, itemQuality, itemIlvl = GetItemInfo(link)
@@ -99,6 +111,7 @@ local function CalcGS()
                 end
             else
                 emptyCount = emptyCount + 1
+                if slot == 3 then shoulderMissing = true end
                 LichborneTrackerDB.rows[di].ilvl[g] = 0
                 LichborneTrackerDB.rows[di].ilvlLink[g] = ""
                 slotDiag[g] = string.format("%-5s", PBM.SLOT_ABBR[g]).."(s"..slot..")=|cff555555NIL|r"
@@ -107,6 +120,18 @@ local function CalcGS()
     end
 
     PBM.DBG("Slots: |cff44ff44"..linkCount.." links|r (cached="..cachedCount.." uncached="..uncachedCount.." iLvl0="..zeroIlvlCount..") nil-link=|cffff4444"..emptyCount.."|r")
+
+    -- INSPECT_READY can arrive before the shoulder slot is populated.  A
+    -- short targeted retry prevents a transient nil from becoming a saved
+    -- blank value while keeping genuinely empty shoulder slots blank.
+    if shoulderMissing and linkCount >= 8 and PBM.State.LichborneShoulderRetries < SHOULDER_RETRY_MAX then
+        PBM.State.LichborneShoulderRetries = PBM.State.LichborneShoulderRetries + 1
+        PBM.State.inspectWait = 0
+        InspectUnit(inspUnit)
+        PBM.DBG("Shoulder slot is temporarily unavailable — retry "..
+            PBM.State.LichborneShoulderRetries.."/"..SHOULDER_RETRY_MAX)
+        return
+    end
     if anyPending then
         PBM.State.LichborneCacheRetries = PBM.State.LichborneCacheRetries + 1
         PBM.DBG("|cffffff88"..rowName.."|r: "..uncachedCount.." items uncached - cache retry "..PBM.State.LichborneCacheRetries.."/"..CACHE_MAX_RETRIES)
@@ -149,7 +174,10 @@ local function CalcGS()
         local prevGS     = rowData.gs or 0
         local prevRealGS = rowData.realGs or 0
         rowData.gs = ilvl
-        rowData.realGs = realGs
+        -- A partial inspect may produce no calculable GS.  Do not erase a
+        -- previously valid value in that case.
+        if realGs > 0 then rowData.realGs = realGs end
+        realGs = rowData.realGs or 0
         PBM.DBG("DB write |cffffff88"..rowName.."|r: iLvl "..(prevGS~=ilvl and "|cffff9900"..prevGS.."|r->".."|cff44ff44"..ilvl.."|r" or "|cffaaaaaa"..ilvl.."|r").." GS "..(prevRealGS~=realGs and "|cffff9900"..prevRealGS.."|r->".."|cff44ff44"..realGs.."|r" or "|cffaaaaaa"..realGs.."|r"))
 
         for _, row in ipairs(PBM.State.rowFrames) do
@@ -205,6 +233,7 @@ local function CalcGS()
         if PBM.State.overviewRowFrames and #PBM.State.overviewRowFrames > 0 then PBM.RefreshOverviewRows() end
         if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end
         PBM.State.LichborneInspectRetries = 0
+        PBM.State.LichborneShoulderRetries = 0
     else
         -- No slots came back — inspect data not ready yet.
         PBM.State.LichborneInspectRetries = PBM.State.LichborneInspectRetries + 1

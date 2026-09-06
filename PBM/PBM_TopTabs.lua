@@ -1,5 +1,5 @@
 -- ============================================================
---  PBM_TopTabs.lua  |  Title-bar tabs: Playerbots / Ind.Prog. / LevelSync / Notes
+--  PBM_TopTabs.lua  |  Title-bar tabs: Playerbots / Ind.Prog. / LevelSync / Notes / Statics
 --  Panel content is delegated to per-tab files:
 --    PBM_Tab_Playerbots.lua             → PBM.BuildPlayerbotsPanel(panel, ctx)
 --    PBM_Tab_IndividualProgression.lua  → PBM.BuildIPProgressionPanel(panel, ctx)
@@ -30,6 +30,7 @@ local BOTTOM_TABS = {
     { id="LevelSync",            label="LevelSync",   r=GOLD_R, g=GOLD_G, b=GOLD_B },
     { id="Notes",                label="Notes",       r=GOLD_R, g=GOLD_G, b=GOLD_B },
     { id="Group",                label="Group",       r=GOLD_R, g=GOLD_G, b=GOLD_B },
+    { id="Statics",              label="Statics",     r=GOLD_R, g=GOLD_G, b=GOLD_B },
 }
 
 -- ── Tab button layout (title bar row, right of Clear buttons) ─
@@ -37,7 +38,7 @@ local BOTTOM_TABS = {
 local TAB_W       = 88
 local TAB_H       = 26
 local TAB_STEP    = 89
-local TAB_START_X = 633
+local TAB_START_X = 544
 local TAB_START_Y = -7
 
 -- ── Content panel dimensions ──────────────────────────────────
@@ -93,6 +94,9 @@ function PBM.ActivateBottomTab(id)
     PBM.State.activeTab = id
     PBM.UpdateTabs()
     PBM.RefreshRows()
+    if id == "Statics" and PBM.RefreshStaticsPanel then
+        PBM.RefreshStaticsPanel()
+    end
     if id == "LevelSync" and PBM.LevelSyncAutoRefresh then
         PBM.LevelSyncAutoRefresh()
     end
@@ -144,14 +148,13 @@ end
 local FS_SIDE   = 13          -- flush with gold content border
 local FS_BOT    = 8           -- clears BOTTOMLEFT y=8 buttons
 local FULL_W    = 1120 - 2 * FS_SIDE        -- 1094
-local FULL_H    = 758 + CONTENT_Y - FS_BOT  -- 684  (758 - 66 - 8)
 
 local function MakeContentFrame(name, parent, fl, title, fullHeight, hr, hg, hb)
     hr = hr or PERI_R; hg = hg or PERI_G; hb = hb or PERI_B
     local f = CreateFrame("Frame", name, parent)
     if fullHeight then
         f:SetPoint("TOPLEFT", parent, "TOPLEFT", FS_SIDE, CONTENT_Y)
-        f:SetSize(1090, FULL_H)
+        f:SetSize(FULL_W, parent:GetHeight() + CONTENT_Y - FS_BOT)
         f:SetFrameLevel(fl + 25)
         f:EnableMouse(true)
     else
@@ -299,6 +302,11 @@ function PBM.BuildBottomTabs(parent, fl)
             PBM.State.bottomTabPanels["Group"] = PBM.State.groupViewFrame
         end
     end
+
+    -- ── Statics panel ────────────────────────────────────────
+    local staticsPanel = MakeContentFrame("PBMTabPanel_Statics", parent, fl, "Statics", false, GOLD_R, GOLD_G, GOLD_B)
+    PBM.State.bottomTabPanels["Statics"] = staticsPanel
+    PBM.BuildStaticsPanel(staticsPanel, ctx)
 
     -- ── Tab buttons ──────────────────────────────────────────
     for i, tabDef in ipairs(BOTTOM_TABS) do

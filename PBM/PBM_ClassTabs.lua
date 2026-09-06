@@ -691,6 +691,10 @@ function PBM.RefreshRows()
         PBM.OpenGroupView()
         return
     end
+    if PBM.State.activeTab == "Statics" then
+        if PBM.RefreshStaticsPanel then PBM.RefreshStaticsPanel() end
+        return
+    end
     if PBM.State.activeTab == "Settings" then return end
     PBM.SetNeedsCellMode("prof")
     PBM.EnsureClass(PBM.State.activeTab)

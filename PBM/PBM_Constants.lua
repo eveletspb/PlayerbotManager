@@ -265,4 +265,4 @@ PBM.ROLE_ORDER_HLR = {HLR=1, TNK=2, DPS=3}
 PBM.MAX_SPEC_RETRIES = 6
 
 -- Bottom tab IDs in display order (used by visibility toggles)
-PBM.BOTTOM_TAB_IDS = {"Playerbots", "IndividualProgression", "LevelSync", "Notes"}
+PBM.BOTTOM_TAB_IDS = {"Playerbots", "IndividualProgression", "LevelSync", "Notes", "Group", "Statics"}

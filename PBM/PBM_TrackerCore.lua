@@ -1185,6 +1185,7 @@ local function OnFirstShow()
                                 bridgeSpecPending = false
                                 if detailName and ApplyBridgeSpec(targetName, foundDi, firstTree, secondTree, thirdTree) then
                                     PBM.RefreshRows()
+                                    if PBM.State.overviewRowFrames and #PBM.State.overviewRowFrames > 0 then PBM.RefreshOverviewRows() end
                                     if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end
                                     LichborneOutput("|cffC69B3APBM:|r Specialization |cff44ff44bridge succeeded|r: "..targetName..".", 1, 0.85, 0)
                                     sIdx = sIdx + 1
