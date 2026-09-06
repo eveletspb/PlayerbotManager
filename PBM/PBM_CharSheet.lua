@@ -216,11 +216,15 @@ function PBM.CreateCharSheet(config)
             local bot = menu.botName or ""
             if bot ~= "" then
                 PBM.SendToBot("stopcasting", bot)
-                PBM.SendToBot("talents switch 1", bot)
-                PBM_TimerAfter(0.4, function()
-                    PBM.SendToBot("talents spec " .. def.spec, bot)
-                    PBM.State.pickingPending[bot] = true
-                end)
+                if PBM.ApplyTalentTemplate then
+                    PBM.ApplyTalentTemplate(bot, def.spec)
+                else
+                    PBM.SendToBot("talents switch 1", bot)
+                    PBM_TimerAfter(0.4, function()
+                        PBM.SendToBot("talents spec " .. def.spec, bot)
+                        PBM.State.pickingPending[bot] = true
+                    end)
+                end
             end
             specTex:SetTexture(def.icon)
             local rd = menu.sourceRow
@@ -586,6 +590,26 @@ function PBM.CreateCharSheet(config)
         else
             menu.statLine3:SetText("")
         end
+    end
+
+    menu.applyBridgeDetail = function(sender, race, gender, className, level, t1, t2, t3)
+        local name = menu.botName or sender
+        local function cap(value)
+            return value and value ~= "" and (value:sub(1, 1):upper() .. value:sub(2)) or "?"
+        end
+        menu.whoLine1:SetText("|cff" .. classHex .. name .. "|r")
+        menu.whoLine2:SetText("|cffFFD100" .. tostring(level or "?") .. "|r |cffFFFFFF" .. cap(race) .. "|r |cff" .. classHex .. cap(className) .. "|r")
+        menu.whoLine3:SetText("|cffFFFFFF?|r |cffFFD100(" .. tostring(t1 or 0) .. "/" .. tostring(t2 or 0) .. "/" .. tostring(t3 or 0) .. ")|r")
+    end
+
+    menu.applyBridgeStats = function(sender, gold, silver, copper, bagUsed, bagTotal, durability)
+        menu.statLine1:SetText("|cffFFD100" .. tostring(gold or 0) .. "g|r")
+        menu.statLine2:SetText("|cffFFFFFF" .. tostring(bagUsed or 0) .. "/" .. tostring(bagTotal or 0) .. "|r|cffFFFFFF Bag|r")
+        local value = tonumber(durability) or 0
+        local ratio = value / 100
+        local r = math.floor(math.min(1, ratio * 2) * 255)
+        local g = math.floor(math.min(1, (1 - ratio) * 2) * 255)
+        menu.statLine3:SetText("|cff" .. string.format("%02x%02x00", r, g) .. value .. "% Durability|r")
     end
 
     -- ── Bottom notes (left-aligned, right of Ignored Spell List, single line) ──

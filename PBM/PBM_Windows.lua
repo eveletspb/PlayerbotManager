@@ -494,7 +494,11 @@ PBM.talent.wowButton(PBM.info.talent.Apply, -474, 966, 100, 20, 12).doHide()
 		if(i < 3) then tValues = tValues .. "-" end
 	end
 
-	SendChatMessage("talents apply " ..tValues, "WHISPER", nil, PBM.talent.name)
+	if PBM.SendTalentBuild then
+		PBM.SendTalentBuild(PBM.talent.name, tValues)
+	else
+		SendChatMessage("talents apply " ..tValues, "WHISPER", nil, PBM.talent.name)
+	end
 	pButton.doHide()
 end
 
@@ -525,7 +529,11 @@ copyBtn.doLeft = function(pButton)
 		if(i < 3) then tValues = tValues .. "-" end
 	end
 
-	SendChatMessage("talents apply " ..tValues, "WHISPER", nil, tName)
+	if PBM.SendTalentBuild then
+		PBM.SendTalentBuild(tName, tValues)
+	else
+		SendChatMessage("talents apply " ..tValues, "WHISPER", nil, tName)
+	end
 end
 
 PBM.talent.wowButton("X", -470, 992, 17, 20, 13)
@@ -1243,6 +1251,10 @@ function PBM.OpenInventoryWindow(botName)
 
 	PBM._waitFor[botName] = "INVENTORY"
 	PBM.inventory.name = botName
+	if PBM.BridgeRequestInventory and PBM.BridgeRequestInventory(botName) then
+		PBM._waitFor[botName] = "BRIDGE_INVENTORY"
+		return
+	end
 	SendChatMessage("items", "WHISPER", nil, botName)
 end
 

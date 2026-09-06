@@ -1467,6 +1467,13 @@ function PBM.BuildRaidFrame(parent, fl)
     -- ── Invite Raid button (anchored below raid frame) ────────
     -- Invite button lives on main frame beside Add Target/Update GS buttons
 
+    local function QueueBotAdds(names, getClassHex, label)
+        for _, name in ipairs(names) do
+            SendChatMessage(".playerbots bot add "..name, "SAY")
+            LichborneOutput("|cffC69B3APBM:|r "..label.." "..getClassHex(name)..name.."|r...",1,0.85,0)
+        end
+    end
+
     local inviteBtn = CreateFrame("Button","LichborneInviteRaidBtn",LichborneRaidFrame:GetParent())
     inviteBtn:SetPoint("BOTTOMLEFT", LichborneRaidFrame:GetParent(), "BOTTOMLEFT", 495, 8)
     inviteBtn:SetSize(155, 81)
@@ -1519,6 +1526,7 @@ function PBM.BuildRaidFrame(parent, fl)
         local totalCount = #names + 1  -- +1 for self
         PBM.SetInviteActive(true)
         LichborneOutput("|cffC69B3APBM:|r Starting invite for "..totalCount.." players...",1,0.85,0)
+        LichborneOutput("|cffC69B3APBM:|r Invite transport: |cffffcc00playerbots chat queue|r (bridge batch invite is not used).",1,0.85,0)
         if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Logging out all bots...") end
 
         -- Always kick everyone and start fresh so we get a clean group/raid.
@@ -1528,6 +1536,7 @@ function PBM.BuildRaidFrame(parent, fl)
         local waitTime = 0
         local phase = "logout_wait"
         local reinviteSubPhase = "remove"
+        local verifyDelay = 3
 
         local inviteFrame = CreateFrame("Frame")
         PBM.State.activeInviteFrame = inviteFrame
@@ -1546,35 +1555,19 @@ function PBM.BuildRaidFrame(parent, fl)
             elseif phase == "leave_wait" then
                 if waitTime < 1.0 then return end
                 waitTime = 0
-                phase = "first"
+                phase = "batch_invite"
                 LichborneOutput("|cffC69B3APBM:|r Bots cleared, starting invites...",1,0.85,0)
                 if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Inviting "..totalCount.." players...") end
 
-            elseif phase == "first" then
-                if waitTime < 0.5 then return end
-                local firstName = names[1]
-                SendChatMessage(".playerbots bot add "..firstName, "SAY")
-                LichborneOutput("|cffC69B3APBM:|r Inviting "..GetClassHex(firstName)..firstName.."|r...",1,0.85,0)
-                inviteIndex = 2
+            elseif phase == "batch_invite" then
+                QueueBotAdds(names, GetClassHex, "Inviting")
+                phase = "verify_wait"
+                verifyDelay = 2 + math.ceil(#names / 5)
                 waitTime = 0
-                phase = "rest"
-
-            elseif phase == "rest" then
-                if waitTime < 0.8 then return end
-                waitTime = 0
-                if inviteIndex > #names then
-                    phase = "verify_wait"
-                    waitTime = 0
-                    LichborneOutput("|cffC69B3APBM:|r Initial invites sent, verifying...",1,0.85,0)
-                    return
-                end
-                local pname = names[inviteIndex]
-                SendChatMessage(".playerbots bot add "..pname, "SAY")
-                LichborneOutput("|cffC69B3APBM:|r Inviting "..GetClassHex(pname)..pname.."|r...",1,0.85,0)
-                inviteIndex = inviteIndex + 1
+                LichborneOutput("|cffC69B3APBM:|r Initial invites sent, verifying...",1,0.85,0)
 
             elseif phase == "verify_wait" then
-                if waitTime < 3.0 then return end
+                if waitTime < verifyDelay then return end
                 -- Detect whether WoW put us in a raid or a party and use the right API
                 local inGroup = {}
                 local numRaid = GetNumRaidMembers()
@@ -1702,6 +1695,7 @@ function PBM.BuildRaidFrame(parent, fl)
         end
         PBM.SetInviteActive(true)
         LichborneOutput("|cffC69B3APBM:|r Starting group invite for "..#names.." players...",1,0.85,0)
+        LichborneOutput("|cffC69B3APBM:|r Invite transport: |cffffcc00playerbots chat queue|r (bridge batch invite is not used).",1,0.85,0)
         if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Logging out all bots...") end
         -- Remove all bots with wildcard first
         SendChatMessage(".playerbots bot remove *", "SAY")
@@ -1709,6 +1703,7 @@ function PBM.BuildRaidFrame(parent, fl)
         local waited = 0
         local grpPhase = "logout_wait"
         local grpReinviteSubPhase = "remove"
+        local grpVerifyDelay = 3
         local grpFrame = CreateFrame("Frame")
         PBM.State.activeInviteFrame = grpFrame
         PBM.UpdateInviteButtons()
@@ -1724,25 +1719,17 @@ function PBM.BuildRaidFrame(parent, fl)
             elseif grpPhase == "leave_wait" then
                 if waited < 1.0 then return end
                 waited = 0
-                grpPhase = "invite"
+                grpPhase = "batch_invite"
                 LichborneOutput("|cffC69B3APBM:|r Starting group invites...",1,0.85,0)
                 if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Inviting "..#names.." players...") end
-            elseif grpPhase == "invite" then
-                if waited < 0.8 then return end
+            elseif grpPhase == "batch_invite" then
+                QueueBotAdds(names, GetClassHex, "Inviting")
+                grpPhase = "verify_wait"
+                grpVerifyDelay = 2 + math.ceil(#names / 5)
                 waited = 0
-                if invIdx > #names then
-                    -- Verify pass
-                    grpPhase = "verify_wait"
-                    waited = 0
-                    LichborneOutput("|cffC69B3APBM:|r Initial invites sent, verifying...",1,0.85,0)
-                    return
-                end
-                local pname = names[invIdx]
-                SendChatMessage(".playerbots bot add "..pname, "SAY")
-                LichborneOutput("|cffC69B3APBM:|r Inviting "..GetClassHex(pname)..pname.."|r...",1,0.85,0)
-                invIdx = invIdx + 1
+                LichborneOutput("|cffC69B3APBM:|r Initial invites sent, verifying...",1,0.85,0)
             elseif grpPhase == "verify_wait" then
-                if waited < 3.0 then return end
+                if waited < grpVerifyDelay then return end
                 -- Detect whether WoW put us in a raid or a party and use the right API
                 local inParty = {}
                 local grpNumRaid = GetNumRaidMembers()

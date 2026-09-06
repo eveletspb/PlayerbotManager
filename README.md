@@ -6,6 +6,29 @@
 
 ---
 
+## Optional mod-multibot-bridge transport
+
+Playerbot Manager can work with the optional AzerothCore `mod-multibot-bridge`.
+At login it performs a protocol handshake over WoW `SendAddonMessage` with
+prefix `MBOT`. After a valid `HELLO_ACK` and
+capability negotiation, supported strategy mutations use the structured MBOT
+bridge protocol. If the bridge is not installed or does not advertise the
+required capability, Playerbot Manager keeps using the existing
+`mod-playerbots` chat-command path. Read requests also fall back after a
+bridge timeout. A write that was already sent through the bridge is not
+replayed through chat, preventing duplicate mutations.
+
+Talent build application uses `TALENT_APPLY_V1`; named talent templates use
+`TALENT_SPEC_LIST` plus `TALENT_SPEC_APPLY_V1` when available. Inventory reads
+use framed `INVENTORY_V1` snapshots. Inventory item actions still use the
+legacy path until the UI carries exact bag/slot/count source data required by
+the bridge endpoints.
+
+The bridge is not required for installing or using the addon. Legacy queries
+and operations without a matching structured endpoint intentionally remain on
+the fallback path until their response parsers and UI state transitions are
+migrated.
+
 ## Recent Changes — v1.4 (July 3, 2026)
 
 ### Reorder Rows
