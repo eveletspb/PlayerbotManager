@@ -375,6 +375,116 @@ function PBM.BridgeRequestInventory(botName)
     return PBM.BridgeSend("GET", payload, token, OnFrame, OnTimeout)
 end
 
+local GEAR_SLOT_INDEX = {
+    [1] = 1, [2] = 2, [3] = 3, [15] = 4, [5] = 5, [9] = 6,
+    [10] = 7, [6] = 8, [7] = 9, [8] = 10, [11] = 11, [12] = 12,
+    [13] = 13, [14] = 14, [16] = 15, [17] = 16, [18] = 17,
+}
+
+function PBM.BridgeRequestGear(botName, callback, onTimeout)
+    if not PBM.BridgeHasCapability("GEAR_INSPECT_V1") then return false end
+
+    local token = NextToken()
+    local gear = { ilvl = {}, ilvlLink = {}, score = 0 }
+    for i = 1, PBM.GEAR_SLOTS do
+        gear.ilvl[i] = 0
+        gear.ilvlLink[i] = ""
+    end
+
+    local function OnFrame(opcode, fields)
+        if opcode == "GEAR_SUMMARY" then
+            gear.score = tonumber(fields[3]) or 0
+        elseif opcode == "GEAR_ITEM" then
+            local slot = GEAR_SLOT_INDEX[tonumber(fields[3] or "")]
+            if slot then
+                gear.ilvl[slot] = tonumber(fields[5]) or 0
+            end
+        elseif opcode == "GEAR_END" then
+            if callback then callback(gear) end
+        elseif opcode == "GEAR_ERROR" or opcode == "ERR" then
+            if callback then callback(nil, fields[3] or fields[4] or "BRIDGE_ERROR") end
+        end
+    end
+
+    local function OnTimeout()
+        if onTimeout then onTimeout() end
+    end
+
+    return PBM.BridgeSend("GET", table.concat({ "GEAR", UrlEncode(botName), token }, FIELD_SEPARATOR), token, OnFrame, OnTimeout)
+end
+
+function PBM.BridgeRequestDetail(botName, callback, onTimeout)
+    if not PBM.BridgeHasCapability("DETAIL_V1") then return false end
+
+    local token = NextToken()
+    local function OnResult(opcode, fields)
+        if opcode == "DETAIL_RESULT" then
+            callback(UrlDecode(fields[2] or ""), UrlDecode(fields[3] or ""), UrlDecode(fields[4] or ""), UrlDecode(fields[5] or ""),
+                tonumber(fields[6]) or 0, tonumber(fields[7]) or 0, tonumber(fields[8]) or 0,
+                tonumber(fields[9]) or 0, tonumber(fields[10]) or 0)
+        elseif opcode == "ERR" then
+            callback(nil, nil, nil, nil, nil, nil, nil, nil, UrlDecode(fields[4] or fields[3] or "BRIDGE_ERROR"))
+        end
+    end
+
+    return PBM.BridgeSend("GET", table.concat({ "DETAIL", UrlEncode(botName), token }, FIELD_SEPARATOR), token,
+        OnResult, function()
+            if onTimeout then onTimeout() end
+        end)
+end
+
+function PBM.BridgeRequestStats(botName, callback, onTimeout)
+    if not PBM.BridgeHasCapability("STATS_V1") then return false end
+
+    local token = NextToken()
+    local function OnResult(opcode, fields)
+        if opcode == "STATS_RESULT" then
+            callback(UrlDecode(fields[2] or ""), tonumber(fields[3]) or 0, tonumber(fields[4]) or 0,
+                tonumber(fields[5]) or 0, tonumber(fields[6]) or 0, tonumber(fields[7]) or 0,
+                tonumber(fields[8]) or 0, tonumber(fields[9]) or 0, tonumber(fields[10]) or 0,
+                tonumber(fields[11]) or 0)
+        elseif opcode == "ERR" then
+            callback(nil, nil, nil, nil, nil, nil, nil, nil, nil,
+                UrlDecode(fields[4] or fields[3] or "BRIDGE_ERROR"))
+        end
+    end
+
+    return PBM.BridgeSend("GET", table.concat({ "STATS", UrlEncode(botName), token }, FIELD_SEPARATOR), token,
+        OnResult, function()
+            if onTimeout then onTimeout() end
+        end)
+end
+
+function PBM.ApplyBridgeGear(botName, gear)
+    if not gear or not LichborneTrackerDB or not LichborneTrackerDB.rows then return false end
+    local rowIndex = PBM.FindTrackedRowIndexByName and PBM.FindTrackedRowIndexByName(botName)
+    if not rowIndex then return false end
+
+    local row = LichborneTrackerDB.rows[rowIndex]
+    row.ilvl = gear.ilvl or row.ilvl or {}
+    row.ilvlLink = gear.ilvlLink or row.ilvlLink or {}
+    row.gs = gear.score or row.gs or 0
+    -- The bridge snapshot intentionally reports item level only. Do not keep
+    -- an older inspect-derived GS next to fresh gear data.
+    row.realGs = 0
+
+    if row.name and LichborneTrackerDB.raidRosters then
+        for _, roster in pairs(LichborneTrackerDB.raidRosters) do
+            for _, slot in ipairs(roster) do
+                if slot.name and slot.name:lower() == row.name:lower() then
+                    slot.gs = row.gs
+                    slot.realGs = row.realGs
+                end
+            end
+        end
+    end
+
+    if PBM.RefreshRows then PBM.RefreshRows() end
+    if PBM.RefreshOverviewRows then PBM.RefreshOverviewRows() end
+    if PBM.RefreshRaidRows then PBM.RefreshRaidRows() end
+    return true
+end
+
 function PBM.HandleBridgeMessage(message)
     if not IsBridgeMessage(message) then return false end
 
@@ -444,6 +554,26 @@ function PBM.HandleBridgeMessage(message)
             if opcode == "INV_END" then PBM.Bridge.pending[token] = nil end
             request.callback(opcode, fields)
         end
+        return true
+    end
+
+    if opcode == "GEAR_BEGIN" or opcode == "GEAR_SUMMARY" or opcode == "GEAR_ITEM" or
+        opcode == "GEAR_ERROR" or opcode == "GEAR_END" then
+        local fields = SplitFields(payload)
+        local token = fields[2]
+        local request = PBM.Bridge.pending[token]
+        if request then
+            if opcode == "GEAR_END" or opcode == "GEAR_ERROR" then
+                PBM.Bridge.pending[token] = nil
+            end
+            request.callback(opcode, fields)
+        end
+        return true
+    end
+
+    if opcode == "DETAIL_RESULT" or opcode == "STATS_RESULT" then
+        local fields = SplitFields(payload)
+        ResolvePending(fields[1], opcode, fields)
         return true
     end
 

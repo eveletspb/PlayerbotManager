@@ -82,6 +82,10 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
 
         -- Bot join greeting → start sequential query chain (co? → nc? → ss? → who)
         if msg == "Hello!" or msg == "你好" then
+            if PBM.BridgeIsAvailable and PBM.BridgeIsAvailable() and PBM.QueryBotStrategies then
+                PBM.QueryBotStrategies(sender, nil, false)
+                return
+            end
             PBM.State.joinPending[sender] = { step = 1 }
             PBM.SendToBot("co ?", sender)
             return
@@ -127,8 +131,12 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
             if menuFrame and menuFrame.onStatsResponse then
                 menuFrame.onStatsResponse(sender, statsClean, msg)  -- raw msg keeps bot color codes
             end
-            PBM.SendToBot("who", sender)
-            ep.step = 4
+            if not ep.bridgeDetail then
+                PBM.SendToBot("who", sender)
+                ep.step = 4
+            else
+                PBM.State.strategyPending[sender] = nil
+            end
             return
         end
 
@@ -601,7 +609,66 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
 
         if pending.extended then
             pending.step = 3
-            PBM.SendToBot("stats", name)
+            pending.bridgeDetail = PBM.BridgeRequestDetail and PBM.BridgeRequestDetail(name, function(detailName, race, gender, className, level, t1, t2, t3)
+                local current = PBM.State.strategyPending[name]
+                if not detailName then
+                    if current then
+                        current.bridgeDetail = false
+                        PBM.SendToBot("who", name)
+                        current.step = 4
+                    end
+                    return
+                end
+                local frame = PBM.State.lastQueriedMenu[name]
+                if current and frame and frame:IsShown() and frame.applyBridgeDetail then
+                    frame.applyBridgeDetail(detailName, race, gender, className, level, t1, t2, t3)
+                end
+                if current and current.bridgeStats then
+                    PBM.State.strategyPending[name] = nil
+                end
+            end, function()
+                local current = PBM.State.strategyPending[name]
+                if current then
+                    current.bridgeDetail = false
+                    PBM.SendToBot("who", name)
+                    current.step = 4
+                end
+            end) or false
+
+            pending.bridgeStats = PBM.BridgeRequestStats and PBM.BridgeRequestStats(name, function(statsName, level, gold, silver, copper, bagUsed, bagTotal, durability)
+                local current = PBM.State.strategyPending[name]
+                if not statsName then
+                    if current then
+                        current.bridgeStats = false
+                        PBM.SendToBot("stats", name)
+                        current.step = 3
+                    end
+                    return
+                end
+                local frame = PBM.State.lastQueriedMenu[name]
+                if current and frame and frame:IsShown() and frame.applyBridgeStats then
+                    frame.applyBridgeStats(statsName, gold, silver, copper, bagUsed, bagTotal, durability)
+                end
+                if current and current.bridgeDetail then
+                    PBM.State.strategyPending[name] = nil
+                end
+            end, function()
+                local current = PBM.State.strategyPending[name]
+                if current then
+                    current.bridgeStats = false
+                    PBM.SendToBot("stats", name)
+                    current.step = 3
+                end
+            end) or false
+
+            if not pending.bridgeDetail then
+                PBM.SendToBot("who", name)
+                pending.step = 4
+            end
+            if not pending.bridgeStats then
+                PBM.SendToBot("stats", name)
+                pending.step = 3
+            end
         else
             PBM.State.strategyPending[name] = nil
         end

@@ -548,6 +548,8 @@ local function OnFirstShow()
         LichborneAddStatus:SetText("Updating Gear for "..hex..targetName.."|r...")
         LichborneOutput("|cffC69B3APBM:|r Updating Gear for "..hex..targetName.."|r...", 1, 0.85, 0)
         local gsDi = foundDi
+
+        local function StartLegacyGearScan()
         -- Lock all buttons (including Stop and invite) during single-target scan
         SetScanActive(true)
         local stopBtn = _G["LichborneStopInspectBtn"]
@@ -589,6 +591,37 @@ local function OnFirstShow()
                 end
             end
         end)
+        end
+
+        if PBM.BridgeRequestGear and PBM.BridgeHasCapability and PBM.BridgeHasCapability("GEAR_INSPECT_V1") then
+            LichborneOutput("|cffC69B3APBM:|r Gear transport: |cff44ff44bridge GEAR_INSPECT_V1|r requested...", 1, 0.85, 0)
+            SetScanActive(true)
+            local stopBtn = _G["LichborneStopInspectBtn"]
+            if stopBtn then stopBtn:Disable(); stopBtn:SetAlpha(0.35) end
+            local sent = PBM.BridgeRequestGear(targetName, function(gear, reason)
+                local applied = gear and PBM.ApplyBridgeGear and PBM.ApplyBridgeGear(targetName, gear)
+                if applied then
+                    if LichborneAddStatus then LichborneAddStatus:SetText("|cff44ff44Gear updated without character inspect.|r") end
+                    LichborneOutput("|cffC69B3APBM:|r Gear transport: |cff44ff44bridge succeeded|r for "..hex..targetName.."|r.", 1, 0.85, 0)
+                    SetScanActive(false)
+                    if stopBtn then stopBtn:Enable(); stopBtn:SetAlpha(1.0) end
+                else
+                    LichborneOutput("|cffC69B3APBM:|r Bridge gear request failed ("..tostring(reason or "invalid response")..") — switching to |cffff9900legacy InspectUnit|r.", 1, 0.85, 0)
+                    StartLegacyGearScan()
+                end
+            end, function()
+                LichborneOutput("|cffC69B3APBM:|r Bridge gear request timed out — switching to |cffff9900legacy InspectUnit|r.", 1, 0.85, 0)
+                StartLegacyGearScan()
+            end)
+            if sent then return end
+            LichborneOutput("|cffC69B3APBM:|r Bridge gear capability became unavailable — using |cffff9900legacy InspectUnit|r.", 1, 0.85, 0)
+            SetScanActive(false)
+            if stopBtn then stopBtn:Enable(); stopBtn:SetAlpha(1.0) end
+        else
+            LichborneOutput("|cffC69B3APBM:|r Bridge gear capability unavailable — using |cffff9900legacy InspectUnit|r.", 1, 0.85, 0)
+        end
+
+        StartLegacyGearScan()
     end)
 
     -- ── Update Target Spec (row y=78, right) ──────────────────
@@ -1024,11 +1057,19 @@ local function OnFirstShow()
             LichborneOutput("|cffC69B3APBM:|r Full Group Scan started (+"..added..", skipped "..skipped..(skipped > 0 and ". Levels updated." or "")..").\nGS phase: "..#units.." players.", 1, 0.85, 0)
             local scanStartTime = GetTime()
             local idx, elapsed, inspecting = 1, 0, false
+            local bridgeGearActive = PBM.BridgeRequestGear and PBM.BridgeHasCapability and PBM.BridgeHasCapability("GEAR_INSPECT_V1")
+            local bridgeGearPending = false
+            if bridgeGearActive then
+                LichborneOutput("|cffC69B3APBM:|r Full Group Scan gear transport: |cff44ff44bridge for bots|r, legacy InspectUnit for player/fallback.", 1, 0.85, 0)
+            else
+                LichborneOutput("|cffC69B3APBM:|r Full Group Scan gear transport: |cffff9900legacy InspectUnit fallback|r.", 1, 0.85, 0)
+            end
             local gFrame = CreateFrame("Frame")
             activeInspectFrame = gFrame
             gFrame:SetScript("OnUpdate", function(_, delta)
                 elapsed = elapsed + delta
                 if inspecting then
+                    if bridgeGearPending then return end
                     if PBM.State.LichborneInspectTarget ~= nil and elapsed < 25 then return end
                     if PBM.State.LichborneInspectTarget ~= nil then
                         PBM.DBG("|cffff9900FullScan GS 25s cap|r — forcing advance to next player")
@@ -1071,8 +1112,7 @@ local function OnFirstShow()
                                 if not UnitIsUnit(unit, "player") then
                                     local name = UnitName(unit)
                                     if name and name ~= "" and UnitIsPlayer(unit) then
-                                        PBM.State.joinPending[name] = { step = 1 }
-                                        PBM.SendToBot("co ?", name)
+                                        PBM.QueryBotStrategies(name, nil, false)
                                         strCount = strCount + 1
                                     end
                                 end
@@ -1111,6 +1151,41 @@ local function OnFirstShow()
                 if not foundDi then
                     LichborneOutput("|cffC69B3APBM:|r Skipping "..tostring(targetName).." (not tracked)", 1, 0.6, 0.3)
                     idx = idx + 1; return
+                end
+                if bridgeGearActive and not UnitIsUnit(unit, "player") then
+                    local function StartLegacyGearForUnit()
+                        bridgeGearPending = false
+                        PBM.State.LichborneInspectTarget = foundDi
+                        PBM.State.LichborneInspectUnit = unit
+                        PBM.State.LichborneInspectGUID = UnitGUID(unit)
+                        PBM.State.inspectWait = 0
+                        InspectUnit(unit)
+                        inspecting = true
+                        elapsed = 0
+                    end
+
+                    bridgeGearPending = true
+                    local sent = PBM.BridgeRequestGear(targetName, function(gear, reason)
+                        if gear and PBM.ApplyBridgeGear and PBM.ApplyBridgeGear(targetName, gear) then
+                            bridgeGearPending = false
+                            LichborneOutput("|cffC69B3APBM:|r Gear |cff44ff44bridge succeeded|r: "..targetName..".", 1, 0.85, 0)
+                        else
+                            LichborneOutput("|cffC69B3APBM:|r Gear bridge failed for "..targetName.." ("..tostring(reason or "invalid response")..") — using legacy InspectUnit.", 1, 0.85, 0)
+                            StartLegacyGearForUnit()
+                        end
+                    end, function()
+                        LichborneOutput("|cffC69B3APBM:|r Gear bridge timed out for "..targetName.." — using legacy InspectUnit.", 1, 0.85, 0)
+                        StartLegacyGearForUnit()
+                    end)
+                    if sent then
+                        idx = idx + 1
+                        inspecting = true
+                        elapsed = 0
+                        return
+                    end
+                    bridgeGearPending = false
+                    bridgeGearActive = false
+                    LichborneOutput("|cffC69B3APBM:|r Gear bridge became unavailable — remaining players use legacy InspectUnit.", 1, 0.85, 0)
                 end
                 LichborneAddStatus:SetText("Updating Gear for |cffffff88"..tostring(targetName).."|r... ("..idx.."/"..#units..")")
                 PBM.State.LichborneInspectTarget = foundDi; PBM.State.LichborneInspectUnit = unit
@@ -1438,8 +1513,7 @@ local function OnFirstShow()
     strTargetBtn:SetScript("OnClick", function()
         local name = AddTargetToTracker()
         if not name then return end
-        PBM.State.joinPending[name] = { step = 1 }
-        PBM.SendToBot("co ?", name)
+        PBM.QueryBotStrategies(name, nil, false)
         LichborneAddStatus:SetText("|cffd4af37Resyncing strategies: "..name.."...|r")
     end)
 
@@ -1465,8 +1539,7 @@ local function OnFirstShow()
                 if UnitIsUnit(unit, "player") then return end
                 local name = UnitName(unit)
                 if name and name ~= "" and UnitIsPlayer(unit) then
-                    PBM.State.joinPending[name] = { step = 1 }
-                    PBM.SendToBot("co ?", name)
+                    PBM.QueryBotStrategies(name, nil, false)
                     count = count + 1
                 end
             end
@@ -3880,4 +3953,3 @@ SlashCmdList["LICHBORNE"] = function(msg)
         LichborneTracker_Open()
     end
 end
-
