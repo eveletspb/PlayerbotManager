@@ -378,6 +378,28 @@ local function OnFirstShow()
     local SetScanActive, AddGroupMembers
     local activeInspectFrame = nil  -- shared by all scan phases; Stop button kills it
 
+    local function ApplyBridgeSpec(botName, rowIndex, firstTree, secondTree, thirdTree)
+        local row = LichborneTrackerDB.rows[rowIndex]
+        if not row then return false end
+        local specNames = PBM.CLASS_SPECS[row.cls or ""]
+        if not specNames then return false end
+
+        local points = { tonumber(firstTree) or 0, tonumber(secondTree) or 0, tonumber(thirdTree) or 0 }
+        local best, bestPoints = 1, points[1]
+        for tree = 2, 3 do
+            if points[tree] > bestPoints then
+                best, bestPoints = tree, points[tree]
+            end
+        end
+        if bestPoints <= 0 then return false end
+
+        local specName = specNames[best]
+        if not specName or specName == "" then return false end
+        row.spec = specName
+        PBM.DBG("Bridge spec "..tostring(botName).." = "..specName.." tree"..best.." ("..bestPoints.." pts)")
+        return true
+    end
+
     local addGroupBtn = CreateFrame("Button", "LichborneAddGroupBtn", f)
     addGroupBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 175, 144)
     addGroupBtn:SetSize(155, 29)
@@ -1085,11 +1107,19 @@ local function OnFirstShow()
                     LichborneAddStatus:SetText("|cffff9900GS done. Starting Specialization scan ("..#units.." players)...|r")
                     LichborneOutput("|cffC69B3APBM:|r GS phase complete. Starting Specialization phase.", 1, 0.85, 0)
                     local sIdx, sElapsed, sInspecting = 1, 0, false
+                    local bridgeSpecActive = PBM.BridgeRequestDetail and PBM.BridgeHasCapability and PBM.BridgeHasCapability("DETAIL_V1")
+                    local bridgeSpecPending = false
+                    if bridgeSpecActive then
+                        LichborneOutput("|cffC69B3APBM:|r Full Group Scan specialization transport: |cff44ff44bridge DETAIL_V1|r for bots, legacy fallback on error.", 1, 0.85, 0)
+                    else
+                        LichborneOutput("|cffC69B3APBM:|r Full Group Scan specialization transport: |cffff9900legacy InspectUnit fallback|r.", 1, 0.85, 0)
+                    end
                     local sFrame = CreateFrame("Frame")
                     activeInspectFrame = sFrame
                     sFrame:SetScript("OnUpdate", function(_, sdelta)
                         sElapsed = sElapsed + sdelta
                         if sInspecting then
+                            if bridgeSpecPending then return end
                             if PBM.State.LichborneSpecTarget ~= nil and sElapsed < 25 then return end
                             if PBM.State.LichborneSpecTarget ~= nil then
                                 PBM.DBG("|cffff9900FullScan Spec 25s cap|r — forcing advance")
@@ -1134,10 +1164,46 @@ local function OnFirstShow()
                             sIdx = sIdx + 1; return
                         end
                         LichborneAddStatus:SetText("Specialization scan |cffffff88"..tostring(targetName).."|r... ("..sIdx.."/"..#units..")")
-                        PBM.State.LichborneSpecTarget = foundDi; PBM.State.LichborneInspectUnit = unit
                         if LichborneTrackerDB.rows[foundDi] then LichborneTrackerDB.rows[foundDi].spec = "" end
-                        PBM.DBG("InspectUnit("..unit..") -> FullScan Spec for |cffffff88"..tostring(targetName).."|r ("..sIdx.."/"..#units..")")
-                        InspectUnit(unit); PBM.State.LichborneSpecGUID = UnitGUID(unit); if not PBM.State.LichborneSpecGUID then PBM.DBG("|cffff4444[NIL]|r UnitGUID("..unit..")=nil — GUID capture skipped") end; PBM.State.specWait = 0; sIdx = sIdx + 1; sInspecting = true; sElapsed = 0
+                        sInspecting = true; sElapsed = 0
+
+                        local function StartLegacySpec()
+                            bridgeSpecPending = false
+                            PBM.State.LichborneSpecTarget = foundDi
+                            PBM.State.LichborneInspectUnit = unit
+                            PBM.DBG("InspectUnit("..unit..") -> FullScan Spec fallback for |cffffff88"..tostring(targetName).."|r ("..sIdx.."/"..#units..")")
+                            InspectUnit(unit)
+                            PBM.State.LichborneSpecGUID = UnitGUID(unit)
+                            PBM.State.specWait = 0
+                            sIdx = sIdx + 1
+                        end
+
+                        if bridgeSpecActive and not UnitIsUnit(unit, "player") then
+                            bridgeSpecPending = true
+                            local sent = PBM.BridgeRequestDetail(targetName, function(detailName, race, gender, className, level, firstTree, secondTree, thirdTree)
+                                bridgeSpecPending = false
+                                if detailName and ApplyBridgeSpec(targetName, foundDi, firstTree, secondTree, thirdTree) then
+                                    PBM.RefreshRows()
+                                    if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end
+                                    LichborneOutput("|cffC69B3APBM:|r Specialization |cff44ff44bridge succeeded|r: "..targetName..".", 1, 0.85, 0)
+                                    sIdx = sIdx + 1
+                                    sInspecting = false
+                                    sElapsed = 0
+                                else
+                                    LichborneOutput("|cffC69B3APBM:|r Specialization bridge failed for "..targetName.." — using legacy InspectUnit.", 1, 0.85, 0)
+                                    StartLegacySpec()
+                                end
+                            end, function()
+                                LichborneOutput("|cffC69B3APBM:|r Specialization bridge timed out for "..targetName.." — using legacy InspectUnit.", 1, 0.85, 0)
+                                StartLegacySpec()
+                            end)
+                            if not sent then
+                                bridgeSpecActive = false
+                                StartLegacySpec()
+                            end
+                        else
+                            StartLegacySpec()
+                        end
                     end)
                     return
                 end
