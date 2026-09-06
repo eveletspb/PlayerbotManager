@@ -56,6 +56,16 @@ function PBM.InitConfig()
         PBMConfig.hiddenTabs = {}
     end
 
+    -- The action-button layout changed when Statics became a separate tab.
+    -- Old visibility flags could hide buttons in the new positions, so
+    -- restore the default visible state once during the migration.
+    if PBMConfig.actionButtonLayoutVersion ~= 2 then
+        PBMConfig.hiddenButtons = PBMConfig.hiddenButtons or {}
+        PBMConfig.hiddenButtons.strategies = nil
+        PBMConfig.hiddenTabs.IPTiers = nil
+        PBMConfig.actionButtonLayoutVersion = 2
+    end
+
 end
 
 function PBM.SaveFramePos(key, frame)

@@ -1548,6 +1548,7 @@ local function OnFirstShow()
         local COL_BOTTOM = 8; local COL_TOP = 173; local GAP = 5
         local visible = {}
         for _, entry in ipairs(PBM.State.ipColumnBtns) do
+            if not entry.isIPTiers then entry.btn:Show() end
             if entry.isIPTiers then
                 if ipHidden then entry.btn:Hide() else entry.btn:Show() end
             end
@@ -2879,6 +2880,8 @@ local function OnFirstShow()
         if b.addGroupStrat  then if shown then b.addGroupStrat:Show()  else b.addGroupStrat:Hide()  end end
         local par = f  -- main tracker frame
         if shown then
+            if b.addTargetStrat then b.addTargetStrat:Show() end
+            if b.addGroupStrat then b.addGroupStrat:Show() end
             -- Standard layout: 5 rows of 29px at y = 8, 42, 76, 110, 144
             if b.stop          then b.stop:ClearAllPoints();          b.stop:SetPoint("BOTTOMLEFT",par,"BOTTOMLEFT",15, 8);   b.stop:SetSize(155,29) end
             if b.maintBtn      then b.maintBtn:ClearAllPoints();      b.maintBtn:SetPoint("BOTTOMLEFT",par,"BOTTOMLEFT",175,8); b.maintBtn:SetSize(155,29) end
