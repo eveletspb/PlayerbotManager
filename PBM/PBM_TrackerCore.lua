@@ -624,7 +624,8 @@ local function OnFirstShow()
                 local applied = gear and PBM.ApplyBridgeGear and PBM.ApplyBridgeGear(targetName, gear)
                 if applied then
                     if LichborneAddStatus then LichborneAddStatus:SetText("|cff44ff44Gear updated without character inspect.|r") end
-                    LichborneOutput("|cffC69B3APBM:|r Gear transport: |cff44ff44bridge succeeded|r for "..hex..targetName.."|r.", 1, 0.85, 0)
+                    LichborneOutput("|cffC69B3APBM:|r Gear transport: |cff44ff44bridge succeeded|r for "..hex..targetName..
+                        "|r (iLvl "..tostring(gear.score or 0)..", GS "..tostring(gear.realGs or 0)..").", 1, 0.85, 0)
                     SetScanActive(false)
                     if stopBtn then stopBtn:Enable(); stopBtn:SetAlpha(1.0) end
                 else
@@ -1234,7 +1235,8 @@ local function OnFirstShow()
                     local sent = PBM.BridgeRequestGear(targetName, function(gear, reason)
                         if gear and PBM.ApplyBridgeGear and PBM.ApplyBridgeGear(targetName, gear) then
                             bridgeGearPending = false
-                            LichborneOutput("|cffC69B3APBM:|r Gear |cff44ff44bridge succeeded|r: "..targetName..".", 1, 0.85, 0)
+                            LichborneOutput("|cffC69B3APBM:|r Gear |cff44ff44bridge succeeded|r: "..targetName..
+                                " (iLvl "..tostring(gear.score or 0)..", GS "..tostring(gear.realGs or 0)..").", 1, 0.85, 0)
                         else
                             LichborneOutput("|cffC69B3APBM:|r Gear bridge failed for "..targetName.." ("..tostring(reason or "invalid response")..") — using legacy InspectUnit.", 1, 0.85, 0)
                             StartLegacyGearForUnit()

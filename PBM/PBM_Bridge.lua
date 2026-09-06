@@ -385,7 +385,7 @@ function PBM.BridgeRequestGear(botName, callback, onTimeout)
     if not PBM.BridgeHasCapability("GEAR_INSPECT_V1") then return false end
 
     local token = NextToken()
-    local gear = { ilvl = {}, ilvlLink = {}, score = 0 }
+    local gear = { ilvl = {}, ilvlLink = {}, score = 0, realGs = 0 }
     for i = 1, PBM.GEAR_SLOTS do
         gear.ilvl[i] = 0
         gear.ilvlLink[i] = ""
@@ -394,10 +394,15 @@ function PBM.BridgeRequestGear(botName, callback, onTimeout)
     local function OnFrame(opcode, fields)
         if opcode == "GEAR_SUMMARY" then
             gear.score = tonumber(fields[3]) or 0
+            gear.realGs = tonumber(fields[4]) or 0
         elseif opcode == "GEAR_ITEM" then
             local slot = GEAR_SLOT_INDEX[tonumber(fields[3] or "")]
             if slot then
+                local itemId = tonumber(fields[4]) or 0
                 gear.ilvl[slot] = tonumber(fields[5]) or 0
+                if itemId > 0 then
+                    gear.ilvlLink[slot] = "item:" .. tostring(itemId) .. ":0:0:0:0:0:0:0"
+                end
             end
         elseif opcode == "GEAR_END" then
             if callback then callback(gear) end
@@ -464,9 +469,7 @@ function PBM.ApplyBridgeGear(botName, gear)
     row.ilvl = gear.ilvl or row.ilvl or {}
     row.ilvlLink = gear.ilvlLink or row.ilvlLink or {}
     row.gs = gear.score or row.gs or 0
-    -- The bridge snapshot intentionally reports item level only. Do not keep
-    -- an older inspect-derived GS next to fresh gear data.
-    row.realGs = 0
+    row.realGs = gear.realGs or 0
 
     if row.name and LichborneTrackerDB.raidRosters then
         for _, roster in pairs(LichborneTrackerDB.raidRosters) do
