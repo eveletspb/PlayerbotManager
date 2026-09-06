@@ -28,6 +28,20 @@ function PBM.SendToBot(cmd, name)
     if _stype then
         PBM.State.lastStratType[name] = _stype
     end
+
+    -- The bridge has a structured strategy endpoint. Keep legacy queries
+    -- and unsupported commands on the old whisper path until their parser
+    -- is migrated; never duplicate a bridge write through chat fallback.
+    local strategyType, strategyChanges = cmd:match("^(co)%s+([+-].+),%?$")
+    if not strategyType then
+        strategyType, strategyChanges = cmd:match("^(nc)%s+([+-].+),%?$")
+    end
+    if strategyType and PBM.BridgeSendStrategy then
+        local stateScope = strategyType == "co" and "C" or "N"
+        if PBM.BridgeSendStrategy(name, stateScope, strategyChanges) then
+            return
+        end
+    end
     SendChatMessage(cmd, "WHISPER", nil, name)
 end
 

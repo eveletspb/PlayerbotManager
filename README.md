@@ -6,6 +6,21 @@
 
 ---
 
+## Optional mod-multibot-bridge transport
+
+Playerbot Manager can work with the optional AzerothCore `mod-multibot-bridge`.
+At login it performs a protocol handshake over WoW `SendAddonMessage` with
+prefix `MBOT`. After a valid `HELLO_ACK` and
+capability negotiation, supported strategy mutations use the structured MBOT
+bridge protocol. If the bridge is not installed, does not answer, or does not
+advertise the required capability, Playerbot Manager keeps using the existing
+`mod-playerbots` chat-command path.
+
+The bridge is not required for installing or using the addon. Legacy queries
+and operations without a matching structured endpoint intentionally remain on
+the fallback path until their response parsers and UI state transitions are
+migrated.
+
 ## Recent Changes — v1.4 (July 3, 2026)
 
 ### Reorder Rows

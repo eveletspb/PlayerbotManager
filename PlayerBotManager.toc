@@ -52,6 +52,7 @@ PBM\PBM_Minimap.lua
 PBM\PBM_TrackerCore.lua
 
 # PBM — Control layer
+PBM\PBM_Bridge.lua
 PBM\PBM_Engine.lua
 PBM\PBM_TalentData.lua
 PBM\PBM_Item.lua

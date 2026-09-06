@@ -34,6 +34,13 @@ _coreFrame:RegisterEvent("ADDON_LOADED")
 _coreFrame:RegisterEvent("PLAYER_LOGIN")
 _coreFrame:RegisterEvent("PLAYER_LOGOUT")
 _coreFrame:RegisterEvent("CHAT_MSG_WHISPER")
+_coreFrame:RegisterEvent("CHAT_MSG_SAY")
+_coreFrame:RegisterEvent("CHAT_MSG_PARTY")
+_coreFrame:RegisterEvent("CHAT_MSG_RAID")
+_coreFrame:RegisterEvent("CHAT_MSG_GUILD")
+_coreFrame:RegisterEvent("CHAT_MSG_OFFICER")
+_coreFrame:RegisterEvent("CHAT_MSG_CHANNEL")
+_coreFrame:RegisterEvent("CHAT_MSG_ADDON")
 _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
     if event == "ADDON_LOADED" and arg1 == "PlayerBotManager" then
         PBM.InitConfig()
@@ -49,8 +56,15 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
             PBM.SaveFramePos(key, frame)
         end
 
+    elseif event == "CHAT_MSG_ADDON" then
+        if PBM.HandleBridgeAddonMessage and PBM.HandleBridgeAddonMessage(arg1, arg2) then return end
+
+    elseif event ~= "CHAT_MSG_WHISPER" then
+        if PBM.HandleBridgeMessage and PBM.HandleBridgeMessage(arg1) then return end
+
     elseif event == "CHAT_MSG_WHISPER" then
         -- arg1 = message text, arg2 = sender name
+        if PBM.HandleBridgeMessage and PBM.HandleBridgeMessage(arg1) then return end
         local msg, sender = arg1, arg2
 
         -- Bot join greeting → start sequential query chain (co? → nc? → ss? → who)
@@ -558,6 +572,40 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
         step     = 1,  -- 1=awaiting co, 2=awaiting nc, 3=stats, 4=who, 5=ss?
         extended = extended or false,
     }
+
+    if PBM.BridgeGetBotState and PBM.BridgeGetBotState(botName, function(name, coSet, ncSet, reason)
+        local pending = PBM.State.strategyPending[name]
+        if not pending then return end
+        if reason then
+            if reason == "TIMEOUT" then
+                -- A bridge that advertised the endpoint but did not answer is
+                -- treated as temporarily unavailable for this read. The
+                -- legacy query is safe here because no write was performed.
+                pending.step = 1
+                PBM.SendToBot("co ?", name)
+            else
+                PBM.State.strategyPending[name] = nil
+            end
+            return
+        end
+
+        local frame = PBM.State.lastQueriedMenu[name]
+        if frame and frame:IsShown() then
+            PBM.UpdateStrategyToggles(frame, "co", coSet)
+            PBM.UpdateStrategyToggles(frame, "nc", ncSet)
+        end
+        if PBM.ApplyBotNotes then PBM.ApplyBotNotes(name, coSet, ncSet) end
+
+        if pending.extended then
+            pending.step = 3
+            PBM.SendToBot("stats", name)
+        else
+            PBM.State.strategyPending[name] = nil
+        end
+    end) then
+        return
+    end
+
     -- Send co? only; nc? is sent sequentially after the co reply arrives.
     -- This guarantees lastStratType is always correct when each reply lands.
     PBM.SendToBot("co ?", botName)
