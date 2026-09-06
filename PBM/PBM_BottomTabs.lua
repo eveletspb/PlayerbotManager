@@ -100,14 +100,16 @@ end
 local FS_SIDE   = 13          -- flush with gold content border
 local FS_BOT    = 8           -- clears BOTTOMLEFT y=8 buttons
 local FULL_W    = 1120 - 2 * FS_SIDE        -- 1094
-local FULL_H    = 758 + CONTENT_Y - FS_BOT  -- 684  (758 - 66 - 8)
 
 local function MakeContentFrame(name, parent, fl, title, fullHeight, hr, hg, hb)
     hr = hr or PERI_R; hg = hg or PERI_G; hb = hb or PERI_B
     local f = CreateFrame("Frame", name, parent)
     if fullHeight then
         f:SetPoint("TOPLEFT", parent, "TOPLEFT", FS_SIDE, CONTENT_Y)
-        f:SetSize(FULL_W, FULL_H)
+        -- Keep the panel aligned with the main frame when its height changes.
+        -- This is important because the raid view reserves extra room for
+        -- the class count bar and the bottom action buttons.
+        f:SetSize(FULL_W, parent:GetHeight() + CONTENT_Y - FS_BOT)
         f:SetFrameLevel(fl + 25)
         f:EnableMouse(true)
     else
