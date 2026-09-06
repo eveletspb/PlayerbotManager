@@ -27,6 +27,7 @@ if not LichborneTrackerDB.allGroup then LichborneTrackerDB.allGroup = "A" end
 if not LichborneTrackerDB.botNotes  then LichborneTrackerDB.botNotes  = {} end
 if not LichborneTrackerDB.ipData    then LichborneTrackerDB.ipData    = {} end
 if not LichborneTrackerDB.charRoles then LichborneTrackerDB.charRoles = {} end
+if not LichborneTrackerDB.statics then LichborneTrackerDB.statics = {} end
 
 -- Legacy migration: allRows → allGroups
 if LichborneTrackerDB.allRows then
@@ -102,6 +103,95 @@ function PBM.IsInActiveRaid(charName)
         end
     end
     return false
+end
+
+local function CopyStaticMember(member)
+    local copy = {}
+    for key, value in pairs(member or {}) do
+        if type(value) == "table" then
+            copy[key] = {}
+            for nestedKey, nestedValue in pairs(value) do
+                copy[key][nestedKey] = nestedValue
+            end
+        else
+            copy[key] = value
+        end
+    end
+    return copy
+end
+
+function PBM.GetStatics()
+    if not LichborneTrackerDB then LichborneTrackerDB = {} end
+    if not LichborneTrackerDB.statics then LichborneTrackerDB.statics = {} end
+    return LichborneTrackerDB.statics
+end
+
+function PBM.SaveCurrentStatic(name)
+    name = tostring(name or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if name == "" then return nil, "EMPTY_NAME" end
+
+    local roster, size = PBM.GetCurrentRoster()
+    local snapshot = {
+        name = name,
+        raidSize = size,
+        raidName = LichborneTrackerDB.raidName or "N/A (5-Man)",
+        raidTier = LichborneTrackerDB.raidTier or 0,
+        members = {},
+    }
+    for i = 1, PBM.MAX_RAID_SLOTS do
+        snapshot.members[i] = CopyStaticMember(roster[i])
+    end
+
+    local statics = PBM.GetStatics()
+    for _, static in ipairs(statics) do
+        if static.name and static.name:lower() == name:lower() then
+            static.raidSize = snapshot.raidSize
+            static.raidName = snapshot.raidName
+            static.raidTier = snapshot.raidTier
+            static.members = snapshot.members
+            return static, "UPDATED"
+        end
+    end
+
+    statics[#statics + 1] = snapshot
+    return snapshot, "CREATED"
+end
+
+function PBM.LoadStatic(index)
+    local statics = PBM.GetStatics()
+    local snapshot = statics[tonumber(index)]
+    if not snapshot or type(snapshot.members) ~= "table" then return false end
+
+    local roster = PBM.GetCurrentRoster()
+    local size = tonumber(snapshot.raidSize) or LichborneTrackerDB.raidSize or 5
+    size = math.max(1, math.min(PBM.MAX_RAID_SLOTS, math.floor(size)))
+    LichborneTrackerDB.raidSize = size
+    for i = 1, PBM.MAX_RAID_SLOTS do
+        roster[i] = i <= size and CopyStaticMember(snapshot.members[i]) or {name="", cls="", spec="", gs=0, realGs=0, role="", notes=""}
+    end
+    return true
+end
+
+function PBM.DeleteStatic(index)
+    local statics = PBM.GetStatics()
+    index = tonumber(index)
+    if not index or not statics[index] then return false end
+    table.remove(statics, index)
+    return true
+end
+
+function PBM.RenameStatic(index, name)
+    local statics = PBM.GetStatics()
+    index = tonumber(index)
+    name = tostring(name or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if not index or not statics[index] or name == "" then return false end
+    for otherIndex, static in ipairs(statics) do
+        if otherIndex ~= index and static.name and static.name:lower() == name:lower() then
+            return false
+        end
+    end
+    statics[index].name = name
+    return true
 end
 
 function PBM.MigrateGearField()

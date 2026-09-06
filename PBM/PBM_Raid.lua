@@ -342,6 +342,18 @@ function PBM.RefreshRaidRows()
             end
         end
 
+        -- Primary / reserve marker
+        if rf.reserveBtn then
+            local isReserve = data.reserve == true
+            rf.reserveBtn:SetText(isReserve and "|cffff9933R|r" or "|cff66dd88P|r")
+            rf.reserveBtn:SetScript("OnEnter", function()
+                GameTooltip:SetOwner(rf.reserveBtn, "ANCHOR_TOP")
+                GameTooltip:AddLine(isReserve and "Reserve" or "Primary", isReserve and 1 or 0.6, isReserve and 0.6 or 1, 0.4)
+                GameTooltip:AddLine("Click to switch Primary / Reserve.", 0.8, 0.8, 0.8)
+                GameTooltip:Show()
+            end)
+        end
+
         -- Notes
         if rf.notesBox then
             rf.notesBox:SetScript("OnTextChanged", nil)
@@ -941,6 +953,7 @@ function PBM.BuildRaidFrame(parent, fl)
                 realGs = r.realGs or 0,
                 role  = r.role  or "",
                 notes = r.notes or "",
+                reserve = r.reserve == true,
             }
         end
         clipboardLabel = "T"..t.." "..name.." ("..grp..")"
@@ -966,6 +979,7 @@ function PBM.BuildRaidFrame(parent, fl)
                     realGs = src.realGs or 0,
                     role  = src.role  or "",
                     notes = src.notes or "",
+                    reserve = src.reserve == true,
                 }
             else
                 roster[i] = {name="", cls="", spec="", gs=0, realGs=0, role="", notes=""}
@@ -1045,6 +1059,301 @@ function PBM.BuildRaidFrame(parent, fl)
         StaticPopup_Show("PBM_CLEAR_RAID", raidName)
     end)
 
+    -- ── Saved statics ───────────────────────────────────────────────────
+    local staticMenu = CreateFrame("Frame", "LichborneStaticMenu", UIParent)
+    staticMenu:SetFrameStrata("DIALOG")
+    staticMenu:SetSize(320, 30)
+    staticMenu:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=8,insets={left=2,right=2,top=2,bottom=2}})
+    staticMenu:SetBackdropColor(0.04,0.06,0.12,0.98)
+    staticMenu:SetBackdropBorderColor(0.78,0.61,0.23,1)
+    staticMenu:Hide()
+    staticMenu.rows = {}
+    staticMenu.mode = "load"
+    local inviteStaticAfterLoad = nil
+
+    local function RefreshStaticMenu()
+        for _, row in ipairs(staticMenu.rows) do row:Hide() end
+        staticMenu.rows = {}
+        local statics = PBM.GetStatics()
+        local rowHeight = 24
+        local rowCount = math.max(1, math.min(10, #statics))
+        staticMenu:SetHeight(rowCount * rowHeight + 8)
+        if #statics == 0 then
+            local empty = staticMenu:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            empty:SetPoint("TOPLEFT", staticMenu, "TOPLEFT", 8, -8)
+            empty:SetText("|cff888888No saved statics.|r")
+            staticMenu.rows[1] = empty
+            return
+        end
+
+        for index, static in ipairs(statics) do
+            if index > 10 then break end
+            local row = CreateFrame("Button", nil, staticMenu)
+            row:SetSize(304, 20)
+            row:SetPoint("TOPLEFT", staticMenu, "TOPLEFT", 4, -4 - (index - 1) * rowHeight)
+            row:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=8,edgeSize=6,insets={left=1,right=1,top=1,bottom=1}})
+            row:SetBackdropColor(0.06,0.09,0.20,1)
+            row:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+            local label = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            label:SetPoint("LEFT", row, "LEFT", 6, 0)
+            label:SetWidth(220)
+            label:SetHeight(20)
+            label:SetJustifyH("LEFT")
+            label:SetText("|cffd4af37" .. (static.name or "Unnamed") .. "|r  |cffaaaaaa(" .. tostring(static.raidSize or 0) .. ")|r")
+            local capturedIndex = index
+            row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            row:SetScript("OnClick", function(_, mouseButton)
+                if mouseButton == "RightButton" then
+                    PBM.State.pendingStaticIndex = capturedIndex
+                    staticMenu:Hide()
+                    StaticPopup_Show("PBM_DELETE_STATIC", static.name or "Unnamed")
+                    return
+                end
+                PBM.State.pendingStaticIndex = capturedIndex
+                PBM.State.pendingStaticInvite = staticMenu.mode == "invite"
+                staticMenu:Hide()
+                if PBM.State.pendingStaticInvite then
+                    StaticPopup_Show("PBM_INVITE_STATIC", static.name or "Unnamed")
+                else
+                    StaticPopup_Show("PBM_LOAD_STATIC", static.name or "Unnamed")
+                end
+            end)
+            row:SetScript("OnEnter", function()
+                GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+                GameTooltip:AddLine("Load Static", 0.78, 0.61, 0.23)
+                GameTooltip:AddLine("Left-click to load into the current roster.", 0.8, 0.8, 0.8)
+                GameTooltip:AddLine("Right-click to delete.", 1, 0.35, 0.35)
+                GameTooltip:Show()
+            end)
+            row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            local renameBtn = CreateFrame("Button", nil, row)
+            renameBtn:SetSize(54, 18)
+            renameBtn:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+            renameBtn:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=8,edgeSize=6,insets={left=1,right=1,top=1,bottom=1}})
+            renameBtn:SetBackdropColor(0.10,0.08,0.02,1)
+            renameBtn:SetBackdropBorderColor(0.78,0.61,0.23,0.8)
+            renameBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+            local renameLabel = renameBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            renameLabel:SetAllPoints(renameBtn)
+            renameLabel:SetJustifyH("CENTER")
+            renameLabel:SetText("Rename")
+            renameBtn:SetScript("OnClick", function()
+                PBM.State.pendingStaticIndex = capturedIndex
+                PBM.State.pendingStaticInvite = nil
+                staticMenu:Hide()
+                StaticPopup_Show("PBM_RENAME_STATIC", static.name or "Unnamed")
+            end)
+            renameBtn:SetScript("OnEnter", function()
+                GameTooltip:SetOwner(renameBtn, "ANCHOR_RIGHT")
+                GameTooltip:AddLine("Rename Static", 0.78, 0.61, 0.23)
+                GameTooltip:Show()
+            end)
+            renameBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            staticMenu.rows[#staticMenu.rows + 1] = row
+        end
+    end
+
+    staticMenu:SetScript("OnUpdate", function()
+        if staticMenu:IsShown() and not MouseIsOver(staticMenu) then
+            staticMenu:Hide()
+        end
+    end)
+
+    if not StaticPopupDialogs["PBM_SAVE_STATIC"] then
+        StaticPopupDialogs["PBM_SAVE_STATIC"] = {
+            text = "Save current roster as static:",
+            button1 = "Save",
+            button2 = "Cancel",
+            hasEditBox = true,
+            maxLetters = 48,
+            OnShow = function(self)
+                self.editBox:SetText("")
+                self.editBox:SetFocus()
+            end,
+            OnAccept = function(self)
+                local static, status = PBM.SaveCurrentStatic(self.editBox:GetText())
+                if not static then
+                    DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Static name cannot be empty.")
+                    return
+                end
+                local action = status == "UPDATED" and "updated" or "saved"
+                DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static |cffd4af37" .. static.name .. "|r " .. action .. ".")
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
+    if not StaticPopupDialogs["PBM_LOAD_STATIC"] then
+        StaticPopupDialogs["PBM_LOAD_STATIC"] = {
+            text = "Load static |cffd4af37%s|r?\n\nThis replaces the current roster.",
+            button1 = "Load",
+            button2 = "Cancel",
+            OnAccept = function()
+                if PBM.LoadStatic(PBM.State.pendingStaticIndex) then
+                    PBM.RefreshRaidRows()
+                    DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static loaded into the current roster.")
+                end
+                PBM.State.pendingStaticIndex = nil
+            end,
+            OnCancel = function() PBM.State.pendingStaticIndex = nil end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
+    if not StaticPopupDialogs["PBM_INVITE_STATIC"] then
+        StaticPopupDialogs["PBM_INVITE_STATIC"] = {
+            text = "Load static |cffd4af37%s|r and invite all its bots?\n\nThis replaces the current roster and starts the invite process.",
+            button1 = "Invite",
+            button2 = "Cancel",
+            OnAccept = function()
+                if PBM.LoadStatic(PBM.State.pendingStaticIndex) then
+                    PBM.RefreshRaidRows()
+                    DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static loaded. Starting invite process.")
+                    if inviteStaticAfterLoad then inviteStaticAfterLoad() end
+                end
+                PBM.State.pendingStaticIndex = nil
+                PBM.State.pendingStaticInvite = nil
+            end,
+            OnCancel = function()
+                PBM.State.pendingStaticIndex = nil
+                PBM.State.pendingStaticInvite = nil
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
+    if not StaticPopupDialogs["PBM_DELETE_STATIC"] then
+        StaticPopupDialogs["PBM_DELETE_STATIC"] = {
+            text = "Delete static |cffd4af37%s|r?",
+            button1 = "Delete",
+            button2 = "Cancel",
+            OnAccept = function()
+                local index = PBM.State.pendingStaticIndex
+                local statics = PBM.GetStatics()
+                local static = statics[index]
+                if PBM.DeleteStatic(index) then
+                    DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static |cffd4af37" .. (static and static.name or "Unnamed") .. "|r deleted.")
+                end
+                PBM.State.pendingStaticIndex = nil
+            end,
+            OnCancel = function() PBM.State.pendingStaticIndex = nil end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
+    if not StaticPopupDialogs["PBM_RENAME_STATIC"] then
+        StaticPopupDialogs["PBM_RENAME_STATIC"] = {
+            text = "Rename static |cffd4af37%s|r:",
+            button1 = "Rename",
+            button2 = "Cancel",
+            hasEditBox = true,
+            maxLetters = 48,
+            OnShow = function(self)
+                local static = PBM.GetStatics()[PBM.State.pendingStaticIndex]
+                self.editBox:SetText(static and static.name or "")
+                self.editBox:HighlightText()
+                self.editBox:SetFocus()
+            end,
+            OnAccept = function(self)
+                local index = PBM.State.pendingStaticIndex
+                if PBM.RenameStatic(index, self.editBox:GetText()) then
+                    DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static renamed to |cffd4af37" .. PBM.GetStatics()[index].name .. "|r.")
+                elseif self.editBox:GetText():gsub("^%s+", ""):gsub("%s+$", "") == "" then
+                    DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Static name cannot be empty.")
+                else
+                    DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r A static with this name already exists.")
+                end
+                PBM.State.pendingStaticIndex = nil
+            end,
+            OnCancel = function() PBM.State.pendingStaticIndex = nil end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
+    local saveStaticBtn = CreateFrame("Button", nil, tierBar)
+    saveStaticBtn:SetSize(72, 20)
+    saveStaticBtn:SetPoint("RIGHT", pasteBtn, "LEFT", -4, 0)
+    saveStaticBtn:SetFrameLevel(fl + 12)
+    saveStaticBtn:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=8,insets={left=2,right=2,top=2,bottom=2}})
+    saveStaticBtn:SetBackdropColor(0.10,0.08,0.02,1)
+    saveStaticBtn:SetBackdropBorderColor(0.78,0.61,0.23,0.9)
+    saveStaticBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    local saveStaticLbl = saveStaticBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    saveStaticLbl:SetAllPoints(saveStaticBtn); saveStaticLbl:SetJustifyH("CENTER")
+    saveStaticLbl:SetText("|cffd4af37Save Static|r")
+    saveStaticBtn:SetScript("OnClick", function() StaticPopup_Show("PBM_SAVE_STATIC") end)
+    saveStaticBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(saveStaticBtn, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Save Static", 0.78, 0.61, 0.23)
+        GameTooltip:AddLine("Saves the current roster as a reusable composition.", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("Group behavior settings are not saved.", 0.6, 0.6, 0.6)
+        GameTooltip:Show()
+    end)
+    saveStaticBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local loadStaticBtn = CreateFrame("Button", nil, tierBar)
+    loadStaticBtn:SetSize(72, 20)
+    loadStaticBtn:SetPoint("RIGHT", saveStaticBtn, "LEFT", -4, 0)
+    loadStaticBtn:SetFrameLevel(fl + 12)
+    loadStaticBtn:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=8,insets={left=2,right=2,top=2,bottom=2}})
+    loadStaticBtn:SetBackdropColor(0.10,0.08,0.02,1)
+    loadStaticBtn:SetBackdropBorderColor(0.78,0.61,0.23,0.9)
+    loadStaticBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    local loadStaticLbl = loadStaticBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    loadStaticLbl:SetAllPoints(loadStaticBtn); loadStaticLbl:SetJustifyH("CENTER")
+    loadStaticLbl:SetText("|cffd4af37Load Static|r")
+    loadStaticBtn:SetScript("OnClick", function()
+        staticMenu.mode = "load"
+        RefreshStaticMenu()
+        staticMenu:ClearAllPoints()
+        staticMenu:SetPoint("TOPRIGHT", loadStaticBtn, "BOTTOMRIGHT", 0, -2)
+        staticMenu:Show()
+    end)
+    loadStaticBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(loadStaticBtn, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Load Static", 0.78, 0.61, 0.23)
+        GameTooltip:AddLine("Loads a saved composition into the current roster.", 0.8, 0.8, 0.8)
+        GameTooltip:Show()
+    end)
+    loadStaticBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local inviteStaticBtn = CreateFrame("Button", nil, tierBar)
+    inviteStaticBtn:SetSize(78, 20)
+    inviteStaticBtn:SetPoint("RIGHT", loadStaticBtn, "LEFT", -4, 0)
+    inviteStaticBtn:SetFrameLevel(fl + 12)
+    inviteStaticBtn:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=8,insets={left=2,right=2,top=2,bottom=2}})
+    inviteStaticBtn:SetBackdropColor(0.30,0.15,0.01,1)
+    inviteStaticBtn:SetBackdropBorderColor(0.78,0.61,0.23,0.9)
+    inviteStaticBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    local inviteStaticLbl = inviteStaticBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    inviteStaticLbl:SetAllPoints(inviteStaticBtn); inviteStaticLbl:SetJustifyH("CENTER")
+    inviteStaticLbl:SetText("|cffd4af37Invite Static|r")
+    inviteStaticBtn:SetScript("OnClick", function()
+        staticMenu.mode = "invite"
+        RefreshStaticMenu()
+        staticMenu:ClearAllPoints()
+        staticMenu:SetPoint("TOPRIGHT", inviteStaticBtn, "BOTTOMRIGHT", 0, -2)
+        staticMenu:Show()
+    end)
+    inviteStaticBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(inviteStaticBtn, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Invite Static", 0.78, 0.61, 0.23)
+        GameTooltip:AddLine("Choose a saved roster and invite all its bots.", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("No readiness checks are applied.", 0.6, 0.6, 0.6)
+        GameTooltip:Show()
+    end)
+    inviteStaticBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     -- Column headers row
     local hdrRow = CreateFrame("Frame",nil,LichborneRaidFrame)
     hdrRow:SetPoint("TOPLEFT",LichborneRaidFrame,"TOPLEFT",-5,-26)
@@ -1086,7 +1395,7 @@ function PBM.BuildRaidFrame(parent, fl)
         end)
     end
 
-    -- Layout constants for raid rows (both columns identical, 530px wide)
+    -- Layout constants: 8 raid groups, 5 slots per group, two columns.
     local RD=0; local RC=20; local RS=42; local RN=66; local RG=178; local RRealGS=232; local RRole=286; local RNotes=326; local RInvX=0; local RDelX=0  -- InvX/DelX unused, buttons use RIGHT anchor
     -- Spec header icon only (no class icon header)
     local specHdrTex = hdrRow:CreateTexture(nil, "OVERLAY")
@@ -1099,16 +1408,40 @@ function PBM.BuildRaidFrame(parent, fl)
     RSH("iLvL", RG+2, 50, "ilvl", true, nil)
     RSH("GS",   RRealGS+2, 50, "gs", true, nil)
     RSH("Role", RRole, 36, "role", false, nil)
+    RH("P/B", 303, 21)
     RH("Notes", RNotes+2, 169)
 
-    -- Build 40 raid rows (2 columns of 20)
-    local ROW_H = 22
+    -- Build 40 raid rows as 8 groups x 5 slots (4 groups per column).
+    local ROW_H = 20
+    local GROUP_HEADER_H = 16
+    local GROUP_BLOCK_H = GROUP_HEADER_H + 5 * ROW_H
     local COL2_X = 538
 
+    for groupIndex = 1, 8 do
+        local column = groupIndex <= 4 and 0 or 1
+        local columnGroupIndex = ((groupIndex - 1) % 4)
+        local groupX = column == 0 and -5 or COL2_X
+        local groupY = -46 - columnGroupIndex * GROUP_BLOCK_H
+        local groupHeader = CreateFrame("Frame", nil, LichborneRaidFrame)
+        groupHeader:SetPoint("TOPLEFT", LichborneRaidFrame, "TOPLEFT", groupX, groupY)
+        groupHeader:SetSize(543, GROUP_HEADER_H)
+        groupHeader:SetFrameLevel(fl + 11)
+        local groupBg = groupHeader:CreateTexture(nil, "BACKGROUND")
+        groupBg:SetAllPoints(groupHeader)
+        groupBg:SetTexture(0.08, 0.20, 0.42, 1)
+        local groupLabel = groupHeader:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        groupLabel:SetAllPoints(groupHeader)
+        groupLabel:SetJustifyH("LEFT")
+        groupLabel:SetText("|cffd4af37Group " .. groupIndex .. "|r  |cff888888slots " .. ((groupIndex - 1) * 5 + 1) .. "–" .. (groupIndex * 5) .. "|r")
+    end
+
     for i=1,40 do
-        local col = i <= 20 and -5 or COL2_X
-        local rowIdx = i <= 20 and (i-1) or (i-21)
-        local yOff = -46 - rowIdx * ROW_H
+        local groupIndex = math.floor((i - 1) / 5) + 1
+        local slotIndex = (i - 1) % 5
+        local column = groupIndex <= 4 and 0 or 1
+        local columnGroupIndex = ((groupIndex - 1) % 4)
+        local col = column == 0 and -5 or COL2_X
+        local yOff = -46 - columnGroupIndex * GROUP_BLOCK_H - GROUP_HEADER_H - slotIndex * ROW_H
 
         local rf = CreateFrame("Frame","LichborneRaidRow"..i,LichborneRaidFrame)
         rf:SetPoint("TOPLEFT",LichborneRaidFrame,"TOPLEFT",col,yOff)
@@ -1116,7 +1449,7 @@ function PBM.BuildRaidFrame(parent, fl)
         rf:SetFrameLevel(fl+11)
 
         local rbg = rf:CreateTexture(nil,"BACKGROUND"); rbg:SetAllPoints(rf)
-        rbg:SetTexture(i%2==0 and 0.05 or 0.07, i%2==0 and 0.07 or 0.09, i%2==0 and 0.13 or 0.16, 1)
+        rbg:SetTexture(slotIndex % 2 == 0 and 0.05 or 0.07, slotIndex % 2 == 0 and 0.07 or 0.09, slotIndex % 2 == 0 and 0.13 or 0.16, 1)
 
         -- Hover highlight texture
         rf:EnableMouse(true)
@@ -1256,6 +1589,27 @@ function PBM.BuildRaidFrame(parent, fl)
         end
         rf.noteRoleIcons = noteRoleIcons
         PBM.HookRowHighlight(roleBtn, rf, rf.raidHov)
+
+        local reserveBtn = CreateFrame("Button", nil, rf)
+        reserveBtn:SetPoint("LEFT", rf, "LEFT", 303, 0)
+        reserveBtn:SetSize(21, ROW_H - 2)
+        reserveBtn:SetFrameLevel(rf:GetFrameLevel() + 6)
+        reserveBtn:SetBackdrop({bgFile="Interface\\Tooltips\\UI-Tooltip-Background",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=8,insets={left=1,right=1,top=1,bottom=1}})
+        reserveBtn:SetBackdropColor(0.05,0.07,0.14,0.8)
+        reserveBtn:SetBackdropBorderColor(0.20,0.30,0.50,0.4)
+        reserveBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+        reserveBtn:SetNormalFontObject("GameFontNormalSmall")
+        reserveBtn:RegisterForClicks("LeftButtonUp")
+        reserveBtn:SetScript("OnClick", function()
+            local roster = PBM.GetCurrentRoster()
+            if roster[i] and roster[i].name and roster[i].name ~= "" then
+                roster[i].reserve = not roster[i].reserve
+                PBM.RefreshRaidRows()
+            end
+        end)
+        reserveBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        rf.reserveBtn = reserveBtn
+        PBM.HookRowHighlight(reserveBtn, rf, rf.raidHov)
 
         -- Notes editbox
         local notesBox=CreateFrame("EditBox",nil,rf)
@@ -1424,12 +1778,12 @@ function PBM.BuildRaidFrame(parent, fl)
     specHdrTex2:SetPoint("LEFT", hdrRow2, "LEFT", RS, 0)
     specHdrTex2:SetSize(18, 16)
     specHdrTex2:SetTexture("Interface\\Icons\\Ability_Rogue_Deadliness")
-    RH2("Name",RN+2,108); RH2("iLvL",RG+2,50); RH2("GS",RRealGS+2,50); RH2("Role",RRole,36); RH2("Notes",RNotes+2,169)
+        RH2("Name",RN+2,108); RH2("iLvL",RG+2,50); RH2("GS",RRealGS+2,50); RH2("Role",RRole,36); RH2("P/B",303,21); RH2("Notes",RNotes+2,169)
 
         -- ── Raid class count bar ──────────────────────────────────
     local raidCountBar = CreateFrame("Frame","LichborneRaidCountBar",LichborneRaidFrame)
     _G["LichborneRaidCountBar"] = raidCountBar
-    raidCountBar:SetPoint("TOPLEFT", LichborneRaidFrame, "TOPLEFT", -5, -488)
+    raidCountBar:SetPoint("TOPLEFT", LichborneRaidFrame, "TOPLEFT", -5, -520)
     raidCountBar:SetSize(1086, 24)
     raidCountBar:SetFrameLevel(fl + 11)
     local rcbBg = raidCountBar:CreateTexture(nil,"BACKGROUND")
@@ -1463,7 +1817,6 @@ function PBM.BuildRaidFrame(parent, fl)
         end)
         rcSw:SetScript("OnLeave", function() GameTooltip:Hide() end)
     end
-
     -- ── Invite Raid button (anchored below raid frame) ────────
     -- Invite button lives on main frame beside Add Target/Update GS buttons
 
@@ -1634,6 +1987,7 @@ function PBM.BuildRaidFrame(parent, fl)
             end
         end)
     end)
+    inviteStaticAfterLoad = function() inviteBtn:Click() end
 
     -- ── Invite Group button (for T0 5-mans, no raid conversion) ──
     local inviteGroupBtn = CreateFrame("Button","LichborneInviteGroupBtn",LichborneRaidFrame:GetParent())

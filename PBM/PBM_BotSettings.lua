@@ -15,6 +15,104 @@ local STEP     = ICON_SZ + ICON_GAP   -- 38px per slot
 
 local ADDON_PATH = "Interface\\AddOns\\PlayerBotManager\\Icons\\"
 local ICON_PATH  = "Interface\\Icons\\"
+local GROUP_BUTTON_BACKDROP = {
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true,
+    tileSize = 16,
+    edgeSize = 8,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 },
+}
+
+local function GetGroupBehavior()
+    if not PBMConfig then PBMConfig = {} end
+    PBMConfig.groupBehavior = PBMConfig.groupBehavior or {}
+    local behavior = PBMConfig.groupBehavior
+    if type(behavior.enabled) ~= "boolean" then behavior.enabled = false end
+    if type(behavior.aoe) ~= "boolean" then behavior.aoe = false end
+    if type(behavior.spread) ~= "boolean" then behavior.spread = false end
+    if type(behavior.attackDelay) ~= "number" then behavior.attackDelay = 0 end
+    behavior.attackDelay = math.max(0, math.min(60, math.floor(behavior.attackDelay)))
+    return behavior
+end
+
+function PBM.ApplyGroupBehavior(automatic)
+    local behavior = GetGroupBehavior()
+    if not behavior.enabled then
+        if not automatic then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Group behavior settings are disabled.")
+        end
+        return
+    end
+
+    if not PBM.ActionToGroup("co " .. (behavior.aoe and "+aoe,?" or "-aoe,?")) then
+        if automatic then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Group behavior is enabled, but you are not in a group.")
+        end
+        return
+    end
+    PBM.ActionToGroup("wait for attack time " .. behavior.attackDelay)
+    PBM.ActionToGroup("formation " .. (behavior.spread and "circle" or "near"))
+    local mode = behavior.aoe and "AoE ON" or "AoE OFF"
+    local spread = behavior.spread and "Spread ON" or "Spread OFF"
+    DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Group behavior sent — " .. mode .. ", attack delay " .. behavior.attackDelay .. " sec, " .. spread .. ".")
+end
+
+local function GroupBehaviorTimerAfter(delay, callback)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(delay, callback)
+        return
+    end
+
+    local elapsed = 0
+    local timerFrame = CreateFrame("Frame")
+    timerFrame:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        if elapsed >= delay then
+            self:SetScript("OnUpdate", nil)
+            callback()
+        end
+    end)
+end
+
+local function GetCurrentGroupKey()
+    local names = {}
+    if GetNumRaidMembers() > 0 then
+        for i = 1, GetNumRaidMembers() do
+            local name = UnitName("raid" .. i)
+            if name then names[#names + 1] = name:lower() end
+        end
+    else
+        for i = 1, GetNumPartyMembers() do
+            local name = UnitName("party" .. i)
+            if name then names[#names + 1] = name:lower() end
+        end
+        local playerName = UnitName("player")
+        if playerName then names[#names + 1] = playerName:lower() end
+    end
+    table.sort(names)
+    return table.concat(names, "|")
+end
+
+local groupBehaviorEvents = CreateFrame("Frame")
+groupBehaviorEvents:RegisterEvent("PARTY_MEMBERS_CHANGED")
+groupBehaviorEvents:RegisterEvent("RAID_ROSTER_UPDATE")
+groupBehaviorEvents:SetScript("OnEvent", function()
+    local behavior = GetGroupBehavior()
+    if not behavior.enabled then return end
+
+    local groupKey = GetCurrentGroupKey()
+    if groupKey == "" or groupKey == PBM.State.groupBehaviorLastGroupKey then return end
+    PBM.State.groupBehaviorLastGroupKey = groupKey
+    PBM.State.groupBehaviorApplyToken = (PBM.State.groupBehaviorApplyToken or 0) + 1
+    local token = PBM.State.groupBehaviorApplyToken
+
+    GroupBehaviorTimerAfter(0.8, function()
+        if token == PBM.State.groupBehaviorApplyToken then
+            PBM.ApplyGroupBehavior(true)
+        end
+    end)
+end)
 
 -- ── Section label ────────────────────────────────────────────
 local function MakeLabel(parent, text, x, y, fl)
@@ -284,5 +382,109 @@ function PBM.BuildBotSettingsFrame(parent, fl)
     local resetActLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     resetActLabel:SetPoint("LEFT", resetActBtn, "RIGHT", 6, 0)
     resetActLabel:SetText("|cffccccccReset Action|r")
+
+    -- ============================================================
+    --  COLUMN 3 – GROUP BEHAVIOR DEFAULTS
+    -- ============================================================
+    local GROUP_X = 560
+    local groupBehavior = GetGroupBehavior()
+
+    MakeLabel(f, "Group Behavior", GROUP_X, ROW_START, BL)
+    MakeDivider(f, GROUP_X, ROW_START + 16, 260, BL)
+
+    local groupEnableBtn = MakeIconBtn(f, GROUP_X, ROW_START + 24,
+        ICON_PATH .. "inv_misc_groupneedmore",
+        "Group Behavior",
+        "Enable or disable applying these defaults to the current group.", BL)
+    local groupEnableLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    groupEnableLabel:SetPoint("LEFT", groupEnableBtn, "RIGHT", 6, 0)
+    if groupBehavior.enabled then groupEnableBtn:setOn() else groupEnableBtn:setOff() end
+    groupEnableBtn:SetScript("OnClick", function(self)
+        groupBehavior.enabled = not groupBehavior.enabled
+        if groupBehavior.enabled then self:setOn() else self:setOff() end
+        groupEnableLabel:SetText("|cffccccccApply to current group: " .. (groupBehavior.enabled and "On" or "Off") .. "|r")
+        if groupBehavior.enabled then
+            PBM.State.groupBehaviorLastGroupKey = nil
+        end
+    end)
+    groupEnableLabel:SetText("|cffccccccApply to current group: " .. (groupBehavior.enabled and "On" or "Off") .. "|r")
+
+    local groupRowY = ROW_START + 24 + STEP
+
+    local groupAoeBtn = MakeIconBtn(f, GROUP_X, groupRowY,
+        ICON_PATH .. "Spell_Shadow_RainOfFire",
+        "AoE",
+        "Enable or disable AoE behavior for the current group.", BL)
+    local groupAoeLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    groupAoeLabel:SetPoint("LEFT", groupAoeBtn, "RIGHT", 6, 0)
+    if groupBehavior.aoe then groupAoeBtn:setOn() else groupAoeBtn:setOff() end
+    groupAoeBtn:SetScript("OnClick", function(self)
+        groupBehavior.aoe = not groupBehavior.aoe
+        if groupBehavior.aoe then self:setOn() else self:setOff() end
+        groupAoeLabel:SetText("|cffccccccAoE: " .. (groupBehavior.aoe and "On" or "Off") .. "|r")
+    end)
+    groupAoeLabel:SetText("|cffccccccAoE: " .. (groupBehavior.aoe and "On" or "Off") .. "|r")
+
+    groupRowY = groupRowY + STEP
+
+    local delayEdit = CreateFrame("EditBox", nil, f)
+    delayEdit:SetSize(72, 28)
+    delayEdit:SetPoint("TOPLEFT", f, "TOPLEFT", GROUP_X, -groupRowY)
+    delayEdit:SetAutoFocus(false)
+    delayEdit:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
+    delayEdit:SetTextColor(0.9, 0.9, 0.9, 1)
+    delayEdit:SetJustifyH("CENTER")
+    delayEdit:SetText(tostring(groupBehavior.attackDelay))
+    delayEdit:SetNumeric(true)
+    delayEdit:SetMaxLetters(2)
+    local delayBg = delayEdit:CreateTexture(nil, "BACKGROUND")
+    delayBg:SetAllPoints(delayEdit)
+    delayBg:SetTexture(0.03, 0.05, 0.12, 1)
+    local delayLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    delayLabel:SetPoint("LEFT", delayEdit, "RIGHT", 6, 0)
+    delayLabel:SetText("|cffccccccAttack delay (sec)|r")
+    delayEdit:SetScript("OnTextChanged", function(self)
+        local value = tonumber(self:GetText()) or 0
+        groupBehavior.attackDelay = math.max(0, math.min(60, math.floor(value)))
+    end)
+    delayEdit:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+
+    groupRowY = groupRowY + STEP
+
+    local spreadBtn = MakeIconBtn(f, GROUP_X, groupRowY,
+        ICON_PATH .. "ability_hunter_misdirection",
+        "Spread",
+        "Use a circle formation for the current group.", BL)
+    local spreadLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    spreadLabel:SetPoint("LEFT", spreadBtn, "RIGHT", 6, 0)
+    if groupBehavior.spread then spreadBtn:setOn() else spreadBtn:setOff() end
+    spreadBtn:SetScript("OnClick", function(self)
+        groupBehavior.spread = not groupBehavior.spread
+        if groupBehavior.spread then self:setOn() else self:setOff() end
+        spreadLabel:SetText("|cffccccccSpread: " .. (groupBehavior.spread and "On" or "Off") .. "|r")
+    end)
+    spreadLabel:SetText("|cffccccccSpread: " .. (groupBehavior.spread and "On" or "Off") .. "|r")
+
+    local applyGroupBtn = CreateFrame("Button", nil, f)
+    applyGroupBtn:SetSize(220, 34)
+    applyGroupBtn:SetPoint("TOPLEFT", f, "TOPLEFT", GROUP_X, -(groupRowY + STEP))
+    applyGroupBtn:SetFrameLevel(BL)
+    applyGroupBtn:SetBackdrop(GROUP_BUTTON_BACKDROP)
+    applyGroupBtn:SetBackdropColor(0.03, 0.14, 0.245, 1)
+    applyGroupBtn:SetBackdropBorderColor(0.78, 0.61, 0.23, 0.9)
+    applyGroupBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    local applyGroupLabel = applyGroupBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    applyGroupLabel:SetAllPoints(applyGroupBtn)
+    applyGroupLabel:SetJustifyH("CENTER"); applyGroupLabel:SetJustifyV("MIDDLE")
+    applyGroupLabel:SetText("|cffd4af37Apply to Group|r")
+    applyGroupBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(applyGroupBtn, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Apply Group Behavior", 0.78, 0.61, 0.23)
+        GameTooltip:AddLine("Applies the current defaults to all bots in your party or raid.", 1, 1, 1, true)
+        GameTooltip:AddLine("These settings are not saved in raid rosters or statics.", 0.6, 0.6, 0.6, true)
+        GameTooltip:Show()
+    end)
+    applyGroupBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    applyGroupBtn:SetScript("OnClick", function() PBM.ApplyGroupBehavior(false) end)
 
 end

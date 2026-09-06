@@ -107,6 +107,21 @@ Strategy replies from bots are filtered out of regular chat and shown in the add
 * **Log Out Orphaned Bots** — Logs out any roster bots not currently in your active raid group
 * **Disband Group / Raid** — Kicks all members then leaves. Requires confirmation
 
+### Group Behavior Defaults
+
+The **Bot Settings** tab includes opt-in defaults for the current party or raid:
+
+* Enable or disable AoE behavior
+* Set the wait-before-attack time in seconds
+* Enable or disable spread formation
+* Apply the selected settings to all bots in the current group with one button
+* Automatically re-apply the defaults when bots are invited manually and the
+  party or raid roster changes; PBM reports the applied values in the system chat
+
+These settings are group-only and are not stored in raid rosters or statics. The
+existing addon visual style is used: dark blue panels, gold borders, standard
+WoW controls, and tooltips.
+
 ### Output Box
 
 * Scrollable log at the bottom of the tracker window
@@ -120,6 +135,18 @@ Strategy replies from bots are filtered out of regular chat and shown in the add
 * **Avg bar** — average tracked item level per class (values in gold)
 * **GS bar** — average GearScore per class (values in gold)
 * **Count bar** — total characters per class
+
+### Saved Statics
+
+* Raid rosters use eight groups of five slots for 40-player raids
+* `P/B` marker on each slot switches between `Primary` and `Reserve`
+* Primary/reserve markers are saved with statics and copied with Copy/Paste
+* **Save Static** — saves the current composition as a reusable static
+* **Load Static** — loads a saved composition into the current roster
+* **Invite Static** — loads a saved composition and starts the invite pipeline
+* Left-click a saved static to load it; right-click to delete it
+* Use `Rename` beside a saved static to change its name without rebuilding it
+* Static actions do not require role, spec, gear-score, or completeness checks
 
 ### Help Buttons
 
