@@ -36,9 +36,21 @@ function PBM.SendToBot(cmd, name)
     if not strategyType then
         strategyType, strategyChanges = cmd:match("^(nc)%s+([+-].+),%?$")
     end
+    if strategyChanges then
+        strategyChanges = strategyChanges:gsub(",%?$", "")
+    end
     if strategyType and PBM.BridgeSendStrategy then
         local stateScope = strategyType == "co" and "C" or "N"
-        if PBM.BridgeSendStrategy(name, stateScope, strategyChanges) then
+        if PBM.BridgeSendStrategy(name, stateScope, strategyChanges, function(ok, reason)
+            if not ok and DEFAULT_CHAT_FRAME then
+                DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Strategy bridge failed: " .. tostring(reason))
+            end
+
+            local menuFrame = PBM.State.lastQueriedMenu[name]
+            if menuFrame and menuFrame:IsShown() and PBM.QueryBotStrategies then
+                PBM.QueryBotStrategies(name, menuFrame, false)
+            end
+        end) then
             return
         end
     end

@@ -216,11 +216,15 @@ function PBM.CreateCharSheet(config)
             local bot = menu.botName or ""
             if bot ~= "" then
                 PBM.SendToBot("stopcasting", bot)
-                PBM.SendToBot("talents switch 1", bot)
-                PBM_TimerAfter(0.4, function()
-                    PBM.SendToBot("talents spec " .. def.spec, bot)
-                    PBM.State.pickingPending[bot] = true
-                end)
+                if PBM.ApplyTalentTemplate then
+                    PBM.ApplyTalentTemplate(bot, def.spec)
+                else
+                    PBM.SendToBot("talents switch 1", bot)
+                    PBM_TimerAfter(0.4, function()
+                        PBM.SendToBot("talents spec " .. def.spec, bot)
+                        PBM.State.pickingPending[bot] = true
+                    end)
+                end
             end
             specTex:SetTexture(def.icon)
             local rd = menu.sourceRow

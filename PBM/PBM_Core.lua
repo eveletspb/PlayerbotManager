@@ -27,6 +27,19 @@ local function CoreTimerAfter(delay, func)
     end
 end
 
+function PBM.OnBridgeTalentSpecApplied(botName)
+    PBM.State.pickingPending[botName] = nil
+    local menuFrame = PBM.State.lastQueriedMenu[botName]
+    if not menuFrame or not menuFrame:IsShown() then return end
+
+    if menuFrame.clearStratDisplay then menuFrame.clearStratDisplay() end
+    if menuFrame.resetAllIcons then menuFrame.resetAllIcons() end
+    if menuFrame.resetRoleIcons then menuFrame.resetRoleIcons() end
+    if menuFrame.resetSpecIcons then menuFrame.resetSpecIcons() end
+    menuFrame._specUserSet = nil
+    PBM.QueryBotStrategies(botName, menuFrame, true)
+end
+
 -- ── Event Handler ────────────────────────────────────────────
 
 local _coreFrame = CreateFrame("Frame")
@@ -140,17 +153,7 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
         -- Talent spec picked: bot replies "Picking <spec>"
         -- Clear Strategy List and repopulate via full QueryBotStrategies chain
         if PBM.State.pickingPending[sender] and msg:find("^Picking ") then
-            PBM.State.pickingPending[sender] = nil
-            local menuFrame = PBM.State.lastQueriedMenu[sender]
-            if menuFrame and menuFrame:IsShown() then
-                if menuFrame.clearStratDisplay then menuFrame.clearStratDisplay() end
-                if menuFrame.resetAllIcons  then menuFrame.resetAllIcons()  end
-                if menuFrame.resetRoleIcons then menuFrame.resetRoleIcons() end
-                if menuFrame.resetSpecIcons then menuFrame.resetSpecIcons() end
-                menuFrame._specUserSet = nil
-                -- extended=true: co? → nc? → stats → who (same path as OpenXMenu)
-                PBM.QueryBotStrategies(sender, menuFrame, true)
-            end
+            PBM.OnBridgeTalentSpecApplied(sender)
             return
         end
 

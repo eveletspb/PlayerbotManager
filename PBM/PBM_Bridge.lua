@@ -11,6 +11,8 @@ PBM.Bridge = PBM.Bridge or {
     state = "unknown", -- unknown, probing, available, unavailable
     protocolVersion = "1",
     capabilities = {},
+    helloReceived = false,
+    capabilitiesComplete = false,
     pending = {},
     sequence = 0,
     probeTimeout = 3,
@@ -135,6 +137,8 @@ function PBM.BridgeProbe()
 
     PBM.Bridge.state = "probing"
     PBM.Bridge.capabilities = {}
+    PBM.Bridge.helloReceived = false
+    PBM.Bridge.capabilitiesComplete = false
     SendBridgeWire(BRIDGE_ENVELOPE .. "HELLO" .. FIELD_SEPARATOR .. PBM.Bridge.protocolVersion)
 
     BridgeTimerAfter(PBM.Bridge.probeTimeout, function()
@@ -144,13 +148,26 @@ function PBM.BridgeProbe()
     end)
 end
 
-function PBM.BridgeSendStrategy(botName, stateScope, changes)
+function PBM.BridgeSendStrategy(botName, stateScope, changes, callback)
     if not PBM.BridgeHasCapability("STRATEGY_MUTATION_V1") then return false end
     local token = NextToken()
     local payload = table.concat({
         "STRATEGY", "BOT", UrlEncode(botName), token, stateScope, UrlEncode(changes),
     }, FIELD_SEPARATOR)
-    return PBM.BridgeSend("RUN", payload, token)
+
+    local function OnResult(opcode, fields)
+        if opcode == "STRATEGY_ACK" then
+            local reason = UrlDecode(fields[8] or "")
+            local ok = reason == "OK"
+            if callback then callback(ok, reason, fields) end
+        elseif opcode == "ERR" and callback then
+            callback(false, UrlDecode(fields[4] or fields[3] or "BRIDGE_ERROR"), fields)
+        end
+    end
+
+    return PBM.BridgeSend("RUN", payload, token, OnResult, function()
+        if callback then callback(false, "TIMEOUT") end
+    end)
 end
 
 function PBM.BridgeGetBotState(botName, callback)
@@ -190,6 +207,174 @@ function PBM.BridgeGetBotState(botName, callback)
     return true
 end
 
+function PBM.BridgeSendTalentBuild(botName, build, callback)
+    if not PBM.BridgeHasCapability("TALENT_APPLY_V1") then return false end
+
+    local token = NextToken()
+    local payload = table.concat({
+        "TALENT_APPLY", token, UrlEncode(botName), build,
+    }, FIELD_SEPARATOR)
+
+    local function OnResult(opcode, fields)
+        if opcode == "TALENT_APPLY_RESULT" then
+            callback(fields[3] == "OK", UrlDecode(fields[4] or ""), fields)
+        elseif opcode == "ERR" then
+            callback(false, UrlDecode(fields[4] or fields[3] or "BRIDGE_ERROR"), fields)
+        end
+    end
+
+    return PBM.BridgeSend("RUN", payload, token, OnResult, function()
+        callback(false, "TIMEOUT")
+    end)
+end
+
+function PBM.SendTalentBuild(botName, build)
+    if PBM.BridgeSendTalentBuild and PBM.BridgeSendTalentBuild(botName, build, function(ok, reason)
+        if not ok and DEFAULT_CHAT_FRAME then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Talent build failed: " .. tostring(reason))
+        end
+    end) then
+        return true
+    end
+
+    SendChatMessage("talents apply " .. build, "WHISPER", nil, botName)
+    return false
+end
+
+function PBM.BridgeRequestTalentSpecs(botName, callback, onTimeout)
+    if not PBM.BridgeHasCapability("TALENT_SPEC_APPLY_V1") then return false end
+
+    local token = NextToken()
+    local specs = {}
+    local payload = table.concat({ "TALENT_SPEC_LIST", UrlEncode(botName), token }, FIELD_SEPARATOR)
+
+    local function OnFrame(opcode, fields)
+        if opcode == "TALENT_SPEC_ITEM" then
+            local index = tonumber(fields[3])
+            local name = UrlDecode(fields[4] or "")
+            if index and name ~= "" then
+                specs[#specs + 1] = {
+                    index = index,
+                    name = name,
+                    build = fields[5] or "",
+                }
+            end
+        elseif opcode == "TALENT_SPEC_END" then
+            callback(specs)
+        elseif opcode == "ERR" then
+            callback(nil)
+        end
+    end
+
+    return PBM.BridgeSend("GET", payload, token, OnFrame, onTimeout)
+end
+
+function PBM.BridgeApplyTalentSpec(botName, slot, specIndex, callback)
+    if not PBM.BridgeHasCapability("TALENT_SPEC_APPLY_V1") then return false end
+
+    local token = NextToken()
+    local payload = table.concat({ "TALENT_SPEC_APPLY", token, UrlEncode(botName), slot, specIndex }, FIELD_SEPARATOR)
+    return PBM.BridgeSend("RUN", payload, token, function(opcode, fields)
+        if opcode == "TALENT_SPEC_APPLY_RESULT" then
+            callback(fields[3] == "OK", UrlDecode(fields[4] or ""), fields)
+        else
+            callback(false, UrlDecode(fields[4] or fields[3] or "BRIDGE_ERROR"), fields)
+        end
+    end, function()
+        callback(false, "TIMEOUT")
+    end)
+end
+
+function PBM.ApplyTalentTemplate(botName, specName)
+    local function UseLegacy()
+        PBM.SendToBot("talents switch 1", botName)
+        BridgeTimerAfter(0.4, function()
+            PBM.SendToBot("talents spec " .. specName, botName)
+            PBM.State.pickingPending[botName] = true
+        end)
+    end
+
+    if not PBM.BridgeHasCapability("TALENT_SPEC_APPLY_V1") then
+        UseLegacy()
+        return false
+    end
+
+    local requested = string.lower(specName or "")
+    local sent = PBM.BridgeRequestTalentSpecs(botName, function(specs)
+        specs = specs or {}
+        local selected
+        for _, spec in ipairs(specs) do
+            if string.lower(spec.name) == requested then
+                selected = spec
+                break
+            end
+        end
+
+        if not selected then
+            UseLegacy()
+            return
+        end
+
+        PBM.BridgeApplyTalentSpec(botName, 1, selected.index, function(ok, reason)
+            if ok then
+                if PBM.OnBridgeTalentSpecApplied then PBM.OnBridgeTalentSpecApplied(botName) end
+            elseif DEFAULT_CHAT_FRAME then
+                DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Talent spec failed: " .. tostring(reason))
+            end
+        end)
+    end, UseLegacy)
+
+    if not sent then UseLegacy() end
+    return sent
+end
+
+local function PrepareBridgeInventory(botName)
+    if not PBM.inventory or not PBM.inventory.frames or not PBM.inventory.frames["Items"] then
+        return
+    end
+
+    local items = PBM.inventory.frames["Items"]
+    for _, button in pairs(items.buttons) do button:Hide() end
+    for key in pairs(items.buttons) do items.buttons[key] = nil end
+    PBM.inventory.setText("Title", PBM.doReplace(PBM.info.inventory, "NAME", botName))
+    PBM.inventory.name = botName
+    items.index = 0
+end
+
+function PBM.BridgeRequestInventory(botName)
+    if not PBM.BridgeHasCapability("INVENTORY_V1") then return false end
+
+    local token = NextToken()
+    local payload = table.concat({ "INVENTORY", UrlEncode(botName), token }, FIELD_SEPARATOR)
+
+    local function FallbackInventory()
+        if PBM._waitFor then PBM._waitFor[botName] = "INVENTORY" end
+        SendChatMessage("items", "WHISPER", nil, botName)
+    end
+
+    local function OnFrame(opcode, fields)
+        if opcode == "INV_BEGIN" then
+            PrepareBridgeInventory(UrlDecode(fields[1] or botName))
+        elseif opcode == "INV_ITEM" then
+            local line = UrlDecode(fields[3] or "")
+            if PBM.inventory and PBM.inventory.frames and PBM.addItem then
+                PBM.addItem(PBM.inventory.frames["Items"], line)
+            end
+        elseif opcode == "INV_END" then
+            if PBM.inventory then PBM.inventory:Show() end
+            if PBM._waitFor then PBM._waitFor[botName] = nil end
+        elseif opcode == "ERR" then
+            FallbackInventory()
+        end
+    end
+
+    local function OnTimeout()
+        FallbackInventory()
+    end
+
+    return PBM.BridgeSend("GET", payload, token, OnFrame, OnTimeout)
+end
+
 function PBM.HandleBridgeMessage(message)
     if not IsBridgeMessage(message) then return false end
 
@@ -200,7 +385,10 @@ function PBM.HandleBridgeMessage(message)
     if opcode == "HELLO_ACK" then
         local fields = SplitFields(payload)
         if fields[1] ~= PBM.Bridge.protocolVersion then return true end
-        PBM.Bridge.state = "available"
+        PBM.Bridge.helloReceived = true
+        if PBM.Bridge.capabilitiesComplete then
+            PBM.Bridge.state = "available"
+        end
         return true
     end
 
@@ -212,13 +400,50 @@ function PBM.HandleBridgeMessage(message)
     end
 
     if opcode == "CAPS_END" then
-        if PBM.Bridge.state == "probing" then PBM.Bridge.state = "available" end
+        PBM.Bridge.capabilitiesComplete = true
+        if PBM.Bridge.state == "probing" and PBM.Bridge.helloReceived then
+            PBM.Bridge.state = "available"
+        end
         return true
     end
 
     if opcode == "STRATEGY_ACK" then
         local fields = SplitFields(payload)
         ResolvePending(fields[3], opcode, fields)
+        return true
+    end
+
+    if opcode == "TALENT_APPLY_RESULT" then
+        local fields = SplitFields(payload)
+        ResolvePending(fields[1], opcode, fields)
+        return true
+    end
+
+    if opcode == "TALENT_SPEC_BEGIN" or opcode == "TALENT_SPEC_ITEM" or opcode == "TALENT_SPEC_END" then
+        local fields = SplitFields(payload)
+        local token = fields[2]
+        local request = PBM.Bridge.pending[token]
+        if request then
+            if opcode == "TALENT_SPEC_END" then PBM.Bridge.pending[token] = nil end
+            request.callback(opcode, fields)
+        end
+        return true
+    end
+
+    if opcode == "TALENT_SPEC_APPLY_RESULT" then
+        local fields = SplitFields(payload)
+        ResolvePending(fields[1], opcode, fields)
+        return true
+    end
+
+    if opcode == "INV_BEGIN" or opcode == "INV_ITEM" or opcode == "INV_END" then
+        local fields = SplitFields(payload)
+        local token = fields[2]
+        local request = PBM.Bridge.pending[token]
+        if request then
+            if opcode == "INV_END" then PBM.Bridge.pending[token] = nil end
+            request.callback(opcode, fields)
+        end
         return true
     end
 
