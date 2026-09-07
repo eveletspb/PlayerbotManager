@@ -46,6 +46,7 @@ PBM\PBM_Tab_LevelSync.lua
 PBM\PBM_Tab_Server.lua
 PBM\PBM_Tab_Notes.lua
 PBM\PBM_Tab_Statics.lua
+PBM\PBM_Tab_PullPresets.lua
 PBM\PBM_TopTabs.lua
 PBM\PBM_Inspect.lua
 PBM\PBM_Spec.lua

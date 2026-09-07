@@ -134,7 +134,7 @@ function PBM.BuildStaticsPanel(panel)
     local pfl = panel:GetFrameLevel()
     local intro = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     intro:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -38)
-    intro:SetText("|cffaaaaaaSaved raid compositions. Create a static from the current Raid roster.|r")
+    intro:SetText("|cffaaaaaaSaved raid compositions. Use Edit to change a static in the Raid roster.|r")
 
     MakeStaticButton(panel, "Create Static", 14, 62, 170,
         function() StaticPopup_Show("PBM_SAVE_STATIC_TAB") end, {0.78, 0.61, 0.23})
@@ -187,21 +187,35 @@ function PBM.BuildStaticsPanel(panel)
 
             local captured = index
             local function RowButton(text, x, color, callback)
-                return MakeStaticButton(row, text, x, 4, 108, callback, color)
+                return MakeStaticButton(row, text, x, 4, 100, callback, color)
             end
-            RowButton("Load", 520, {0.20,0.50,0.90}, function()
+            RowButton("Edit", 520, {0.20,0.70,0.40}, function()
+                if not PBM.LoadStatic(captured) then return end
+                if PBM.RefreshRaidSelectionUI then PBM.RefreshRaidSelectionUI() end
+                if PBM.RefreshRaidRows then PBM.RefreshRaidRows() end
+                if PBM.RefreshOverviewRows then PBM.RefreshOverviewRows() end
+
+                -- The static itself is a saved snapshot.  Editing is performed
+                -- in the normal Raid roster UI, then Save Static with the same
+                -- name updates this snapshot instead of creating a duplicate.
+                PBM.State.activeTab = "Raid"
+                if PBM.UpdateTabs then PBM.UpdateTabs() end
+                if PBM.RefreshRows then PBM.RefreshRows() end
+                DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static loaded for editing. Modify the Raid roster, then save it with the same name to update the static.")
+            end)
+            RowButton("Load", 624, {0.20,0.50,0.90}, function()
                 PBM.State.pendingStaticIndex = captured
                 StaticPopup_Show("PBM_LOAD_STATIC_TAB", static.name or "Unnamed")
             end)
-            RowButton("Invite", 634, {0.78,0.30,0.05}, function()
+            RowButton("Invite", 728, {0.78,0.30,0.05}, function()
                 PBM.State.pendingStaticIndex = captured
                 StaticPopup_Show("PBM_INVITE_STATIC_TAB", static.name or "Unnamed")
             end)
-            RowButton("Rename", 748, {0.78,0.61,0.23}, function()
+            RowButton("Rename", 832, {0.78,0.61,0.23}, function()
                 PBM.State.pendingStaticIndex = captured
                 StaticPopup_Show("PBM_RENAME_STATIC_TAB", static.name or "Unnamed")
             end)
-            RowButton("Delete", 862, {0.80,0.15,0.15}, function()
+            RowButton("Delete", 936, {0.80,0.15,0.15}, function()
                 PBM.State.pendingStaticIndex = captured
                 StaticPopup_Show("PBM_DELETE_STATIC_TAB", static.name or "Unnamed")
             end)

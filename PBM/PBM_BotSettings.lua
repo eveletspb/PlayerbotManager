@@ -36,6 +36,9 @@ local function GetGroupBehavior()
     return behavior
 end
 
+-- Shared by the dedicated Pull Presets panel and the legacy Bot Settings panel.
+PBM.GetGroupBehavior = GetGroupBehavior
+
 function PBM.ApplyGroupBehavior(automatic)
     local behavior = GetGroupBehavior()
     if not behavior.enabled then
@@ -45,17 +48,49 @@ function PBM.ApplyGroupBehavior(automatic)
         return
     end
 
-    if not PBM.ActionToGroup("co " .. (behavior.aoe and "+aoe,?" or "-aoe,?")) then
-        if automatic then
-            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Group behavior is enabled, but you are not in a group.")
+    -- AoE is a strategy mutation, so use the structured bridge per group bot
+    -- when it is available. This avoids the legacy group-chat command and the
+    -- whisper replies it produces. The bridge is not a generic command
+    -- executor, therefore the legacy transport remains necessary for the
+    -- attack-delay command below.
+    local bridgeAoeSent = false
+    if PBM.BridgeHasCapability and PBM.BridgeHasCapability("STRATEGY_MUTATION_V1") then
+        local raidCount = GetNumRaidMembers()
+        local count = raidCount > 0 and raidCount or GetNumPartyMembers()
+        local prefix = raidCount > 0 and "raid" or "party"
+        local playerName = UnitName("player")
+        for i = 1, count do
+            local name = UnitName(prefix .. i)
+            if name and name ~= playerName then
+                local changes = behavior.aoe and "+aoe" or "-aoe"
+                if PBM.BridgeSendStrategy(name, "C", changes, function(ok, reason)
+                    if not ok and not automatic and DEFAULT_CHAT_FRAME then
+                        DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r AoE bridge failed for " ..
+                            tostring(name) .. ": " .. tostring(reason or "unknown error"))
+                    end
+                end) then
+                    bridgeAoeSent = true
+                end
+            end
         end
-        return
     end
+
+    if not bridgeAoeSent then
+        if not PBM.ActionToGroup("co " .. (behavior.aoe and "+aoe,?" or "-aoe,?")) then
+            if automatic then
+                DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Group behavior is enabled, but you are not in a group.")
+            end
+            return
+        end
+    end
+
+    -- `formation` was not part of the pull preset and generated one reply
+    -- per bot. Keep the preset focused on the requested AoE and pull delay.
     PBM.ActionToGroup("wait for attack time " .. behavior.attackDelay)
-    PBM.ActionToGroup("formation " .. (behavior.spread and "circle" or "near"))
     local mode = behavior.aoe and "AoE ON" or "AoE OFF"
-    local spread = behavior.spread and "Spread ON" or "Spread OFF"
-    DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Group behavior sent — " .. mode .. ", attack delay " .. behavior.attackDelay .. " sec, " .. spread .. ".")
+    local transport = bridgeAoeSent and "bridge AoE" or "chat AoE"
+    DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Group behavior sent — " .. mode ..
+        ", attack delay " .. behavior.attackDelay .. " sec (" .. transport .. ").")
 end
 
 local function GroupBehaviorTimerAfter(delay, callback)

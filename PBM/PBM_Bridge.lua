@@ -460,12 +460,39 @@ function PBM.BridgeRequestStats(botName, callback, onTimeout)
         end)
 end
 
+local function CalculateBridgeGearScore(row, gear)
+    if not row or not gear or (tonumber(gear.realGs) or 0) > 0 then return end
+    if not PBM.CalculateGearScoreForItemLink then return end
+
+    local total = 0
+    local className = row.cls or ""
+    for slot = 1, PBM.GEAR_SLOTS do
+        local link = gear.ilvlLink and gear.ilvlLink[slot]
+        if link and link ~= "" then
+            local itemScore = select(1, PBM.CalculateGearScoreForItemLink(link)) or 0
+            if className == "Hunter" then
+                if slot == 15 then
+                    itemScore = itemScore * 0.3164 -- main hand
+                elseif slot == 16 then
+                    itemScore = itemScore * 0.3164 -- off hand
+                elseif slot == 17 then
+                    itemScore = itemScore * 5.3224 -- ranged
+                end
+            end
+            total = total + itemScore
+        end
+    end
+
+    if total > 0 then gear.realGs = math.floor(total) end
+end
+
 function PBM.ApplyBridgeGear(botName, gear)
     if not gear or not LichborneTrackerDB or not LichborneTrackerDB.rows then return false end
     local rowIndex = PBM.FindTrackedRowIndexByName and PBM.FindTrackedRowIndexByName(botName)
     if not rowIndex then return false end
 
     local row = LichborneTrackerDB.rows[rowIndex]
+    CalculateBridgeGearScore(row, gear)
     row.ilvl = gear.ilvl or row.ilvl or {}
     row.ilvlLink = gear.ilvlLink or row.ilvlLink or {}
     if (gear.score or 0) > 0 then row.gs = gear.score end

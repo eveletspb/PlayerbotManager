@@ -31,6 +31,7 @@ local BOTTOM_TABS = {
     { id="Notes",                label="Notes",       r=GOLD_R, g=GOLD_G, b=GOLD_B },
     { id="Group",                label="Group",       r=GOLD_R, g=GOLD_G, b=GOLD_B },
     { id="Statics",              label="Statics",     r=GOLD_R, g=GOLD_G, b=GOLD_B },
+    { id="PullPresets",          label="Pull Preset", r=GOLD_R, g=GOLD_G, b=GOLD_B },
 }
 
 -- ── Tab button layout (title bar row, right of Clear buttons) ─
@@ -105,15 +106,16 @@ end
 -- ── Public: show/hide tab buttons and reflow visible ones ─────
 function PBM.RefreshBottomTabPositions()
     if not PBM.State.bottomTabButtons then return end
-    if not PBMConfig then return end
-    local hiddenTabs = PBMConfig.hiddenTabs or {}
+    local hiddenTabs = (PBMConfig and PBMConfig.hiddenTabs) or {}
 
     -- count visible tabs so we can right-align the strip
     local numVisible = 0
     for _, tabDef in ipairs(BOTTOM_TABS) do
         if not hiddenTabs[tabDef.id] then numVisible = numVisible + 1 end
     end
-    local startX = TAB_START_X + (#BOTTOM_TABS - numVisible) * TAB_STEP
+    -- Keep the strip right-aligned to the same edge as the original six tabs.
+    -- This leaves room for the new Pull Presets tab without covering the close button.
+    local startX = TAB_START_X + (6 - numVisible) * TAB_STEP
 
     local visIdx = 0
     for _, tabDef in ipairs(BOTTOM_TABS) do
@@ -249,6 +251,8 @@ local function ActionToGroup(cmd)
     else SendChatMessage(cmd, "SAY") end
 end
 
+PBM.ActionToGroup = ActionToGroup
+
 local function ActionToTargetOrGroup(cmd)
     local t = UnitName("target")
     if t and t ~= "Unknown Entity" and UnitIsPlayer("target") then
@@ -307,6 +311,12 @@ function PBM.BuildBottomTabs(parent, fl)
     local staticsPanel = MakeContentFrame("PBMTabPanel_Statics", parent, fl, "Statics", false, GOLD_R, GOLD_G, GOLD_B)
     PBM.State.bottomTabPanels["Statics"] = staticsPanel
     PBM.BuildStaticsPanel(staticsPanel, ctx)
+
+    -- ── Pull presets panel ──────────────────────────────────
+    local pullPanel = MakeContentFrame("PBMTabPanel_PullPresets", parent, fl,
+                                       "Pull Presets", false, GOLD_R, GOLD_G, GOLD_B)
+    PBM.State.bottomTabPanels["PullPresets"] = pullPanel
+    PBM.BuildPullPresetsPanel(pullPanel, ctx)
 
     -- ── Tab buttons ──────────────────────────────────────────
     for i, tabDef in ipairs(BOTTOM_TABS) do

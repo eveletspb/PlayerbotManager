@@ -622,7 +622,7 @@ local function OnFirstShow()
             if stopBtn then stopBtn:Disable(); stopBtn:SetAlpha(0.35) end
             local sent = PBM.BridgeRequestGear(targetName, function(gear, reason)
                 local applied = gear and PBM.ApplyBridgeGear and PBM.ApplyBridgeGear(targetName, gear)
-                if applied then
+                if applied and (tonumber(gear.realGs) or 0) > 0 then
                     if LichborneAddStatus then LichborneAddStatus:SetText("|cff44ff44Gear updated without character inspect.|r") end
                     LichborneOutput("|cffC69B3APBM:|r Gear transport: |cff44ff44bridge succeeded|r for "..hex..targetName..
                         "|r (iLvl "..tostring(gear.score or 0)..", GS "..tostring(gear.realGs or 0)..").", 1, 0.85, 0)
@@ -1234,8 +1234,10 @@ local function OnFirstShow()
 
                     bridgeGearPending = true
                     local sent = PBM.BridgeRequestGear(targetName, function(gear, reason)
-                        if gear and PBM.ApplyBridgeGear and PBM.ApplyBridgeGear(targetName, gear) then
+                        if gear and PBM.ApplyBridgeGear and PBM.ApplyBridgeGear(targetName, gear) and
+                            (tonumber(gear.realGs) or 0) > 0 then
                             bridgeGearPending = false
+                            PBM.State.LichborneInspectTarget = nil
                             LichborneOutput("|cffC69B3APBM:|r Gear |cff44ff44bridge succeeded|r: "..targetName..
                                 " (iLvl "..tostring(gear.score or 0)..", GS "..tostring(gear.realGs or 0)..").", 1, 0.85, 0)
                         else
