@@ -107,20 +107,7 @@ Strategy replies from bots are filtered out of regular chat and shown in the add
 * **Log Out Orphaned Bots** — Logs out any roster bots not currently in your active raid group
 * **Disband Group / Raid** — Kicks all members then leaves. Requires confirmation
 
-### Group Behavior Defaults
-
-The **Bot Settings** tab includes opt-in defaults for the current party or raid:
-
-* Enable or disable AoE behavior
-* Set the wait-before-attack time in seconds
-* Enable or disable spread formation
-* Apply the selected settings to all bots in the current group with one button
-* Automatically re-apply the defaults when bots are invited manually and the
-  party or raid roster changes; PBM reports the applied values in the system chat
-
-These settings are group-only and are not stored in raid rosters or statics. The
-existing addon visual style is used: dark blue panels, gold borders, standard
-WoW controls, and tooltips.
+Pull presets and group behavior defaults are managed in **MultiBot Chatless**.
 
 ### Output Box
 

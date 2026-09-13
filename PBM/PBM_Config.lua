@@ -8,12 +8,6 @@ PBM.DEFAULTS = {
         rate  = 5,
         burst = 8,
     },
-    groupBehavior = {
-        enabled     = false,
-        aoe         = false,
-        attackDelay = 0,
-        spread      = false,
-    },
     frames = {},
 }
 
@@ -27,16 +21,8 @@ function PBM.InitConfig()
         }
     end
 
-    if not PBMConfig.groupBehavior then
-        PBMConfig.groupBehavior = {}
-    end
-    local behavior = PBMConfig.groupBehavior
-    local defaults = PBM.DEFAULTS.groupBehavior
-    if type(behavior.enabled) ~= "boolean" then behavior.enabled = defaults.enabled end
-    if type(behavior.aoe) ~= "boolean" then behavior.aoe = defaults.aoe end
-    if type(behavior.spread) ~= "boolean" then behavior.spread = defaults.spread end
-    if type(behavior.attackDelay) ~= "number" then behavior.attackDelay = defaults.attackDelay end
-    behavior.attackDelay = math.max(0, math.min(60, math.floor(behavior.attackDelay)))
+    -- Group presets are managed by MultiBot Chatless; discard the old local settings.
+    PBMConfig.groupBehavior = nil
 
     if not PBMConfig.frames then
         PBMConfig.frames = {}
