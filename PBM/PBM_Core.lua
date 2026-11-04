@@ -30,7 +30,7 @@ end
 function PBM.OnBridgeTalentSpecApplied(botName)
     PBM.State.pickingPending[botName] = nil
     local menuFrame = PBM.State.lastQueriedMenu[botName]
-    if not menuFrame or not menuFrame:IsShown() then return end
+    if not menuFrame or not menuFrame:IsShown() or menuFrame.botName ~= botName then return end
 
     if menuFrame.clearStratDisplay then menuFrame.clearStratDisplay() end
     if menuFrame.resetAllIcons then menuFrame.resetAllIcons() end
@@ -54,7 +54,7 @@ _coreFrame:RegisterEvent("CHAT_MSG_GUILD")
 _coreFrame:RegisterEvent("CHAT_MSG_OFFICER")
 _coreFrame:RegisterEvent("CHAT_MSG_CHANNEL")
 _coreFrame:RegisterEvent("CHAT_MSG_ADDON")
-_coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
+_coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
     if event == "ADDON_LOADED" and arg1 == "PlayerBotManager" then
         PBM.InitConfig()
 
@@ -70,14 +70,14 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
         end
 
     elseif event == "CHAT_MSG_ADDON" then
-        if PBM.HandleBridgeAddonMessage and PBM.HandleBridgeAddonMessage(arg1, arg2) then return end
+        if PBM.HandleBridgeAddonMessage and PBM.HandleBridgeAddonMessage(arg1, arg2, arg4) then return end
 
     elseif event ~= "CHAT_MSG_WHISPER" then
-        if PBM.HandleBridgeMessage and PBM.HandleBridgeMessage(arg1) then return end
+        if PBM.HandleBridgeMessage and PBM.HandleBridgeMessage(arg1, arg2) then return end
 
     elseif event == "CHAT_MSG_WHISPER" then
         -- arg1 = message text, arg2 = sender name
-        if PBM.HandleBridgeMessage and PBM.HandleBridgeMessage(arg1) then return end
+        if PBM.HandleBridgeMessage and PBM.HandleBridgeMessage(arg1, arg2) then return end
         local msg, sender = arg1, arg2
 
         -- Bot join greeting → start sequential query chain (co? → nc? → ss? → who)
@@ -128,10 +128,12 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
                 :gsub("|h", "")
                 :gsub("|r", "")
             local menuFrame = PBM.State.lastQueriedMenu[sender]
-            if menuFrame and menuFrame.onStatsResponse then
+            if menuFrame and menuFrame.botName == sender and menuFrame.onStatsResponse then
                 menuFrame.onStatsResponse(sender, statsClean, msg)  -- raw msg keeps bot color codes
             end
-            if not ep.bridgeDetail then
+            if ep.requestDetail then
+                ep.requestDetail()
+            elseif not ep.bridgeDetail then
                 PBM.SendToBot("who", sender)
                 ep.step = 4
             else
@@ -149,7 +151,7 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
                 :gsub("|r", "")
             if clean:find("lvl%)") then
                 local menuFrame = PBM.State.lastQueriedMenu[sender]
-                if menuFrame and menuFrame.onWhoResponse then
+                if menuFrame and menuFrame.botName == sender and menuFrame.onWhoResponse then
                     menuFrame.onWhoResponse(sender, clean)
                 end
                 PBM.SendToBot("ss ?", sender)
@@ -196,7 +198,7 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2)
         -- Single unified path: always route through lastQueriedMenu + lastStratType.
         -- Both solicited (menu open) and unsolicited (toggle click) replies go here.
         local menuFrame = PBM.State.lastQueriedMenu[sender]
-        if not menuFrame or not menuFrame:IsShown() then
+        if not menuFrame or not menuFrame:IsShown() or menuFrame.botName ~= sender then
             -- Fire notes update for any completed two-step query that finished without the menu.
             local ep = PBM.State.strategyPending[sender]
             if ep and ep.step == 2 and PBM.ApplyBotNotes then
@@ -579,14 +581,15 @@ end)
 -- Responses are handled in the CHAT_MSG_WHISPER event above.
 function PBM.QueryBotStrategies(botName, menuFrame, extended)
     PBM.State.lastQueriedMenu[botName] = menuFrame
-    PBM.State.strategyPending[botName] = {
+    local query = {
         step     = 1,  -- 1=awaiting co, 2=awaiting nc, 3=stats, 4=who, 5=ss?
         extended = extended or false,
     }
+    PBM.State.strategyPending[botName] = query
 
     if PBM.BridgeGetBotState and PBM.BridgeGetBotState(botName, function(name, coSet, ncSet, reason)
         local pending = PBM.State.strategyPending[name]
-        if not pending then return end
+        if pending ~= query then return end
         if reason then
             if reason == "TIMEOUT" then
                 -- A bridge that advertised the endpoint but did not answer is
@@ -601,74 +604,47 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
         end
 
         local frame = PBM.State.lastQueriedMenu[name]
-        if frame and frame:IsShown() then
+        if frame and frame:IsShown() and frame.botName == name then
             PBM.UpdateStrategyToggles(frame, "co", coSet)
             PBM.UpdateStrategyToggles(frame, "nc", ncSet)
         end
         if PBM.ApplyBotNotes then PBM.ApplyBotNotes(name, coSet, ncSet) end
 
         if pending.extended then
-            pending.step = 3
-            pending.bridgeDetail = PBM.BridgeRequestDetail and PBM.BridgeRequestDetail(name, function(detailName, race, gender, className, level, t1, t2, t3)
-                local current = PBM.State.strategyPending[name]
-                if not detailName then
-                    if current then
-                        current.bridgeDetail = false
-                        PBM.SendToBot("who", name)
-                        current.step = 4
+            local function LegacyStats()
+                if PBM.State.strategyPending[name] ~= pending then return end
+                pending.step = 3
+                PBM.SendToBot("stats", name)
+            end
+            local function LegacyDetail()
+                if PBM.State.strategyPending[name] ~= pending then return end
+                pending.step = 4
+                PBM.SendToBot("who", name)
+            end
+            pending.requestDetail = function()
+                if PBM.State.strategyPending[name] ~= pending then return end
+                local sent = PBM.BridgeRequestDetail and PBM.BridgeRequestDetail(name, function(detailName, race, gender, className, level, t1, t2, t3)
+                    if PBM.State.strategyPending[name] ~= pending then return end
+                    if not detailName then LegacyDetail(); return end
+                    local frame = PBM.State.lastQueriedMenu[name]
+                    if frame and frame:IsShown() and frame.botName == name and frame.applyBridgeDetail then
+                        frame.applyBridgeDetail(detailName, race, gender, className, level, t1, t2, t3)
                     end
-                    return
-                end
+                    PBM.SendToBot("ss ?", name)
+                    pending.step = 5
+                end, LegacyDetail)
+                if not sent then LegacyDetail() end
+            end
+            local sent = PBM.BridgeRequestStats and PBM.BridgeRequestStats(name, function(statsName, level, gold, silver, copper, bagUsed, bagTotal, durability)
+                if PBM.State.strategyPending[name] ~= pending then return end
+                if not statsName then LegacyStats(); return end
                 local frame = PBM.State.lastQueriedMenu[name]
-                if current and frame and frame:IsShown() and frame.applyBridgeDetail then
-                    frame.applyBridgeDetail(detailName, race, gender, className, level, t1, t2, t3)
-                end
-                if current and current.bridgeStats then
-                    PBM.State.strategyPending[name] = nil
-                end
-            end, function()
-                local current = PBM.State.strategyPending[name]
-                if current then
-                    current.bridgeDetail = false
-                    PBM.SendToBot("who", name)
-                    current.step = 4
-                end
-            end) or false
-
-            pending.bridgeStats = PBM.BridgeRequestStats and PBM.BridgeRequestStats(name, function(statsName, level, gold, silver, copper, bagUsed, bagTotal, durability)
-                local current = PBM.State.strategyPending[name]
-                if not statsName then
-                    if current then
-                        current.bridgeStats = false
-                        PBM.SendToBot("stats", name)
-                        current.step = 3
-                    end
-                    return
-                end
-                local frame = PBM.State.lastQueriedMenu[name]
-                if current and frame and frame:IsShown() and frame.applyBridgeStats then
+                if frame and frame:IsShown() and frame.botName == name and frame.applyBridgeStats then
                     frame.applyBridgeStats(statsName, gold, silver, copper, bagUsed, bagTotal, durability)
                 end
-                if current and current.bridgeDetail then
-                    PBM.State.strategyPending[name] = nil
-                end
-            end, function()
-                local current = PBM.State.strategyPending[name]
-                if current then
-                    current.bridgeStats = false
-                    PBM.SendToBot("stats", name)
-                    current.step = 3
-                end
-            end) or false
-
-            if not pending.bridgeDetail then
-                PBM.SendToBot("who", name)
-                pending.step = 4
-            end
-            if not pending.bridgeStats then
-                PBM.SendToBot("stats", name)
-                pending.step = 3
-            end
+                pending.requestDetail()
+            end, LegacyStats)
+            if not sent then LegacyStats() end
         else
             PBM.State.strategyPending[name] = nil
         end

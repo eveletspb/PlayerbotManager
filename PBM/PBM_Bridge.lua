@@ -22,26 +22,35 @@ local BRIDGE_ENVELOPE = "MBOT\t"
 local BRIDGE_PREFIX = "MBOT"
 local FIELD_SEPARATOR = "~"
 
-local function BridgeTimerAfter(delay, callback)
+local timers = {}
+local timerFrame
+function PBM.TimerAfter(delay, callback)
     if C_Timer and C_Timer.After then
         C_Timer.After(delay, callback)
         return
     end
-
-    local elapsed = 0
-    local frame = CreateFrame("Frame")
-    frame:SetScript("OnUpdate", function(self, dt)
-        elapsed = elapsed + dt
-        if elapsed >= delay then
-            self:SetScript("OnUpdate", nil)
-            callback()
-        end
-    end)
+    if not timerFrame then
+        timerFrame = CreateFrame("Frame")
+        timerFrame:SetScript("OnUpdate", function(self, dt)
+            for index = #timers, 1, -1 do
+                local timer = timers[index]
+                timer.remaining = timer.remaining - dt
+                if timer.remaining <= 0 then
+                    table.remove(timers, index)
+                    timer.callback()
+                end
+            end
+            if #timers == 0 then self:Hide() end
+        end)
+    end
+    timers[#timers + 1] = { remaining = delay, callback = callback }
+    timerFrame:Show()
 end
+local BridgeTimerAfter = PBM.TimerAfter
 
 local function UrlEncode(value)
     value = tostring(value or "")
-    value = value:gsub("([^%w%-_%.~])", function(char)
+    value = value:gsub("([%%~%c])", function(char)
         return string.format("%%%02X", string.byte(char))
     end)
     return value
@@ -396,7 +405,7 @@ function PBM.BridgeRequestGear(botName, callback, onTimeout)
             gear.score = tonumber(fields[3]) or 0
             gear.realGs = tonumber(fields[4]) or 0
         elseif opcode == "GEAR_ITEM" then
-            local slot = GEAR_SLOT_INDEX[tonumber(fields[3] or "")]
+            local slot = GEAR_SLOT_INDEX[(tonumber(fields[3]) or -1) + 1]
             if slot then
                 local itemId = tonumber(fields[4]) or 0
                 gear.ilvl[slot] = tonumber(fields[5]) or 0
@@ -424,6 +433,10 @@ function PBM.BridgeRequestDetail(botName, callback, onTimeout)
     local token = NextToken()
     local function OnResult(opcode, fields)
         if opcode == "DETAIL_RESULT" then
+            if #fields ~= 10 or UrlDecode(fields[2]) ~= botName then
+                callback(nil, nil, nil, nil, nil, nil, nil, nil, "NO_BOT")
+                return
+            end
             callback(UrlDecode(fields[2] or ""), UrlDecode(fields[3] or ""), UrlDecode(fields[4] or ""), UrlDecode(fields[5] or ""),
                 tonumber(fields[6]) or 0, tonumber(fields[7]) or 0, tonumber(fields[8]) or 0,
                 tonumber(fields[9]) or 0, tonumber(fields[10]) or 0)
@@ -444,6 +457,10 @@ function PBM.BridgeRequestStats(botName, callback, onTimeout)
     local token = NextToken()
     local function OnResult(opcode, fields)
         if opcode == "STATS_RESULT" then
+            if #fields ~= 11 or UrlDecode(fields[2]) ~= botName then
+                callback(nil, nil, nil, nil, nil, nil, nil, nil, nil, "NO_BOT")
+                return
+            end
             callback(UrlDecode(fields[2] or ""), tonumber(fields[3]) or 0, tonumber(fields[4]) or 0,
                 tonumber(fields[5]) or 0, tonumber(fields[6]) or 0, tonumber(fields[7]) or 0,
                 tonumber(fields[8]) or 0, tonumber(fields[9]) or 0, tonumber(fields[10]) or 0,
@@ -515,8 +532,9 @@ function PBM.ApplyBridgeGear(botName, gear)
     return true
 end
 
-function PBM.HandleBridgeMessage(message)
+function PBM.HandleBridgeMessage(message, sender)
     if not IsBridgeMessage(message) then return false end
+    if sender ~= UnitName("player") then return true end
 
     local body = string.sub(message, #BRIDGE_ENVELOPE + 1)
     local opcode, payload = body:match("^([^~]+)~?(.*)$")
@@ -634,12 +652,12 @@ function PBM.HandleBridgeMessage(message)
     return true
 end
 
-function PBM.HandleBridgeAddonMessage(prefix, message)
+function PBM.HandleBridgeAddonMessage(prefix, message, sender)
     if prefix ~= BRIDGE_PREFIX then return false end
     if string.sub(message or "", 1, #BRIDGE_ENVELOPE) == BRIDGE_ENVELOPE then
-        return PBM.HandleBridgeMessage(message)
+        return PBM.HandleBridgeMessage(message, sender)
     end
-    return PBM.HandleBridgeMessage(BRIDGE_ENVELOPE .. (message or ""))
+    return PBM.HandleBridgeMessage(BRIDGE_ENVELOPE .. (message or ""), sender)
 end
 
 local bridgeFrame = CreateFrame("Frame")
