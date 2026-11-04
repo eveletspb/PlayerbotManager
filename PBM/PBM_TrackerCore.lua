@@ -1169,6 +1169,7 @@ local function OnFirstShow()
                         sInspecting = true; sElapsed = 0
 
                         local function StartLegacySpec()
+                            if activeInspectFrame ~= sFrame then return end
                             bridgeSpecPending = false
                             PBM.State.LichborneSpecTarget = foundDi
                             PBM.State.LichborneInspectUnit = unit
@@ -1182,6 +1183,7 @@ local function OnFirstShow()
                         if bridgeSpecActive and not UnitIsUnit(unit, "player") then
                             bridgeSpecPending = true
                             local sent = PBM.BridgeRequestDetail(targetName, function(detailName, race, gender, className, level, firstTree, secondTree, thirdTree)
+                                if activeInspectFrame ~= sFrame then return end
                                 bridgeSpecPending = false
                                 if detailName and ApplyBridgeSpec(targetName, foundDi, firstTree, secondTree, thirdTree) then
                                     PBM.RefreshRows()
@@ -1196,6 +1198,7 @@ local function OnFirstShow()
                                     StartLegacySpec()
                                 end
                             end, function()
+                                if activeInspectFrame ~= sFrame then return end
                                 LichborneOutput("|cffC69B3APBM:|r Specialization bridge timed out for "..targetName.." — using legacy InspectUnit.", 1, 0.85, 0)
                                 StartLegacySpec()
                             end)
@@ -1222,6 +1225,7 @@ local function OnFirstShow()
                 end
                 if bridgeGearActive and not UnitIsUnit(unit, "player") then
                     local function StartLegacyGearForUnit()
+                        if activeInspectFrame ~= gFrame then return end
                         bridgeGearPending = false
                         PBM.State.LichborneInspectTarget = foundDi
                         PBM.State.LichborneInspectUnit = unit
@@ -1234,6 +1238,7 @@ local function OnFirstShow()
 
                     bridgeGearPending = true
                     local sent = PBM.BridgeRequestGear(targetName, function(gear, reason)
+                        if activeInspectFrame ~= gFrame then return end
                         if gear and PBM.ApplyBridgeGear and PBM.ApplyBridgeGear(targetName, gear) and
                             (tonumber(gear.realGs) or 0) > 0 then
                             bridgeGearPending = false
@@ -1245,6 +1250,7 @@ local function OnFirstShow()
                             StartLegacyGearForUnit()
                         end
                     end, function()
+                        if activeInspectFrame ~= gFrame then return end
                         LichborneOutput("|cffC69B3APBM:|r Gear bridge timed out for "..targetName.." — using legacy InspectUnit.", 1, 0.85, 0)
                         StartLegacyGearForUnit()
                     end)
@@ -1269,12 +1275,12 @@ local function OnFirstShow()
     local loginBtn = MakeSimpleBtn("LichborneLoginBtn", "|cffd4af37Log in All Bots|r",
         0.1, 0.6, 0.2, 335, 110,
         155, {{"Log in All Bots",0.78,0.61,0.23},{".playerbots bot add *",0.8,0.8,0.8}})
-    loginBtn:SetScript("OnClick", function() SendChatMessage(".playerbots bot add *", "PARTY") end)
+    loginBtn:SetScript("OnClick", function() PBM.SendChatMessage(".playerbots bot add *", "PARTY") end)
 
     local logoutBtn = MakeSimpleBtn("LichborneLogoutBtn", "|cffd4af37Log Out All Bots|r",
         0.90, 0.20, 0.20, 335, 76,
         155, {{"Log Out All Bots",0.78,0.61,0.23},{".playerbots bot remove *",0.8,0.8,0.8}})
-    logoutBtn:SetScript("OnClick", function() SendChatMessage(".playerbots bot remove *", "PARTY") end)
+    logoutBtn:SetScript("OnClick", function() PBM.SendChatMessage(".playerbots bot remove *", "PARTY") end)
 
     -- ── Remove Orphaned Bots button ────────────────────────────
     -- Sends .playerbots bot remove <name> for every character in the Overview tab roster
@@ -1367,7 +1373,7 @@ local function OnFirstShow()
                 return
             end
             local bname = botNames[orphanIdx]
-            SendChatMessage(".playerbots bot remove "..bname, "SAY")
+            PBM.SendChatMessage(".playerbots bot remove "..bname, "SAY")
             orphanIdx = orphanIdx + 1
         end)
     end)
@@ -1465,7 +1471,7 @@ local function OnFirstShow()
                     return
                 end
                 local name = members[idx]
-                SendChatMessage(".ip get "..name, "SAY")
+                PBM.SendChatMessage(".ip get "..name, "SAY")
                 if LichborneAddStatus then
                     LichborneAddStatus:SetText("|cffd4af37Querying IP: |r"..name.." ("..idx.."/"..#members..")")
                 end
@@ -1512,7 +1518,7 @@ local function OnFirstShow()
                 end
                 lockExtra(true)
                 LichborneOutput("|cffC69B3APBM:|r |cffd4af37Disbanding group...|r", 1, 0.85, 0)
-                SendChatMessage(".playerbots bot remove *", "SAY")
+                PBM.SendChatMessage(".playerbots bot remove *", "SAY")
                 local waited = 0
                 local disbFrame = CreateFrame("Frame")
                 disbFrame:SetScript("OnUpdate", function(_, elapsed)

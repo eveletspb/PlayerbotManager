@@ -91,7 +91,7 @@ function PBM.BuildPlayerbotsPanel(pbPanel, ctx)
     for _, cd in ipairs(CLASS_DEFS) do
         local cb = PBIconBtn(400, cy, cd.icon, cd.name, "Summon a random "..cd.name.." RndBot.")
         local cap = cd.cmd
-        cb:SetScript("OnClick", function() SendChatMessage(".playerbots bot addclass "..cap, "SAY") end)
+        cb:SetScript("OnClick", function() PBM.SendChatMessage(".playerbots bot addclass "..cap, "SAY") end)
         local cl = pbPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         cl:SetPoint("LEFT", cb, "RIGHT", 6, 0)
         cl:SetText("|cff"..cd.hex..cd.name.."|r")
@@ -168,7 +168,7 @@ function PBM.BuildPlayerbotsPanel(pbPanel, ctx)
             button1 = "Yes, Reset All",
             button2 = "Cancel",
             OnAccept = function()
-                SendChatMessage(".playerbots bot refresh=raid *", "SAY")
+                PBM.SendChatMessage(".playerbots bot refresh=raid *", "SAY")
             end,
             timeout      = 0,
             whileDead    = true,

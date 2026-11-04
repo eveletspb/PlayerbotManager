@@ -15,6 +15,7 @@ function GetNumPartyMembers() return 0 end
 function SendAddonMessage(_, payload) sent[#sent+1]=payload end
 function ChatFrame_AddMessageEventFilter() end
 function SendChatMessage() end
+PBM = {SendChatMessage=SendChatMessage}
 SlashCmdList = {}
 DEFAULT_CHAT_FRAME = {AddMessage=function() end}
 dofile('PBM/PBM_Constants.lua')

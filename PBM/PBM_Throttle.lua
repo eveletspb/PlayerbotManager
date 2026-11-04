@@ -1,7 +1,7 @@
 -- ============================================================
 --  PBM_Throttle.lua  |  Token bucket rate limiter
 --
---  Wraps the global SendChatMessage and drains a queue at a
+--  Queues only PBM messages and drains them at a
 --  configurable rate.  Default: 5 msg/s, burst capacity 8.
 --  Pattern ported from MultiBotThrottle.lua.
 -- ============================================================
@@ -21,19 +21,28 @@ _throttleFrame:SetScript("OnUpdate", function(_, dt)
 
     while _tokens >= 1 and #_queue > 0 do
         local item = table.remove(_queue, 1)
-        _origSend(item.msg, item.chatType, item.language, item.target)
-        _tokens = _tokens - 1
+        if item.callback then
+            item.callback()
+        elseif not item.isCurrent or item.isCurrent() then
+            _origSend(item.msg, item.chatType, item.language, item.target)
+            _tokens = _tokens - 1
+        end
     end
 end)
 
--- Override global so all addon sends are throttled automatically
-SendChatMessage = function(msg, chatType, language, target)
+-- Keep the global chat API unchanged for the player and other addons.
+function PBM.SendChatMessage(msg, chatType, language, target, isCurrent)
     _queue[#_queue + 1] = {
         msg      = msg,
         chatType = chatType,
         language = language,
         target   = target,
+        isCurrent = isCurrent,
     }
+end
+
+function PBM.AfterChatQueue(callback)
+    _queue[#_queue + 1] = { callback = callback }
 end
 
 -- Utility: how many messages are waiting

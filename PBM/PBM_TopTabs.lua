@@ -243,15 +243,15 @@ end
 
 -- ── Chat helpers (passed to tab builders via ctx) ─────────────
 local function ActionToGroup(cmd)
-    if GetNumRaidMembers() > 5 then SendChatMessage(cmd, "RAID")
-    elseif GetNumPartyMembers() > 0 then SendChatMessage(cmd, "PARTY")
-    else SendChatMessage(cmd, "SAY") end
+    if GetNumRaidMembers() > 5 then PBM.SendChatMessage(cmd, "RAID")
+    elseif GetNumPartyMembers() > 0 then PBM.SendChatMessage(cmd, "PARTY")
+    else PBM.SendChatMessage(cmd, "SAY") end
 end
 
 local function ActionToTargetOrGroup(cmd)
     local t = UnitName("target")
     if t and t ~= "Unknown Entity" and UnitIsPlayer("target") then
-        SendChatMessage(cmd, "WHISPER", nil, t)
+        PBM.SendChatMessage(cmd, "WHISPER", nil, t)
     else ActionToGroup(cmd) end
 end
 

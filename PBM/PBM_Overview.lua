@@ -466,11 +466,11 @@ PBM.RefreshOverviewRows = function()
                 local hex = c and string.format("|cff%02x%02x%02x",math.floor(c.r*255),math.floor(c.g*255),math.floor(c.b*255)) or "|cffffffff"
                 if btn == "RightButton" then
                     UninviteUnit(d.name)
-                    SendChatMessage(".playerbots bot remove "..d.name, "SAY")
+                    PBM.SendChatMessage(".playerbots bot remove "..d.name, "SAY")
                     LichborneOutput("|cffC69B3APBM:|r Removed "..hex..d.name.."|r from bots.", 1, 0.85, 0)
                     return
                 end
-                SendChatMessage(".playerbots bot add "..d.name, "SAY")
+                PBM.SendChatMessage(".playerbots bot add "..d.name, "SAY")
                 if LichborneAddStatus then LichborneAddStatus:SetText("Invited "..hex..d.name.."|r to group.") end
             end)
         end

@@ -246,7 +246,7 @@ function PBM.SendTalentBuild(botName, build)
         return true
     end
 
-    SendChatMessage("talents apply " .. build, "WHISPER", nil, botName)
+    PBM.SendChatMessage("talents apply " .. build, "WHISPER", nil, botName)
     return false
 end
 
@@ -353,15 +353,19 @@ end
 function PBM.BridgeRequestInventory(botName)
     if not PBM.BridgeHasCapability("INVENTORY_V1") then return false end
 
+    local request = PBM.inventory and PBM.inventory.request
     local token = NextToken()
     local payload = table.concat({ "INVENTORY", UrlEncode(botName), token }, FIELD_SEPARATOR)
 
     local function FallbackInventory()
+        if request and PBM.inventory.request ~= request then return end
         if PBM._waitFor then PBM._waitFor[botName] = "INVENTORY" end
-        SendChatMessage("items", "WHISPER", nil, botName)
+        PBM.SendChatMessage("items", "WHISPER", nil, botName)
     end
 
     local function OnFrame(opcode, fields)
+        if request and PBM.inventory.request ~= request then return end
+        if opcode ~= "ERR" and UrlDecode(fields[1]) ~= botName then return end
         if opcode == "INV_BEGIN" then
             PrepareBridgeInventory(UrlDecode(fields[1] or botName))
         elseif opcode == "INV_ITEM" then
@@ -370,7 +374,10 @@ function PBM.BridgeRequestInventory(botName)
                 PBM.addItem(PBM.inventory.frames["Items"], line)
             end
         elseif opcode == "INV_END" then
-            if PBM.inventory then PBM.inventory:Show() end
+            if PBM.inventory then
+                PBM.inventory.loading = false
+                PBM.inventory:Show()
+            end
             if PBM._waitFor then PBM._waitFor[botName] = nil end
         elseif opcode == "ERR" then
             FallbackInventory()

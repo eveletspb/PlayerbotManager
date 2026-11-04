@@ -162,7 +162,7 @@ function PBM.BuildBotSettingsFrame(parent, fl)
 
         local capturedCmd = cd.cmd
         classBtn:SetScript("OnClick", function()
-            SendChatMessage(".playerbots bot addclass " .. capturedCmd, "SAY")
+            PBM.SendChatMessage(".playerbots bot addclass " .. capturedCmd, "SAY")
         end)
 
         local cLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")

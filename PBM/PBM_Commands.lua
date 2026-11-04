@@ -1,7 +1,7 @@
 -- ============================================================
 --  PBM_Commands.lua  |  Bot command dispatch helpers
 --
---  All sends go through the throttled SendChatMessage wrapper
+--  All sends go through the throttled PBM.SendChatMessage wrapper
 --  installed by PBM_Throttle.lua.
 -- ============================================================
 PBM = PBM or {}
@@ -9,9 +9,9 @@ PBM = PBM or {}
 -- Send a command to the entire party or raid.
 function PBM.SendToGroup(cmd)
     if GetNumRaidMembers() > 0 then
-        SendChatMessage(cmd, "RAID")
+        PBM.SendChatMessage(cmd, "RAID")
     elseif GetNumPartyMembers() > 0 then
-        SendChatMessage(cmd, "PARTY")
+        PBM.SendChatMessage(cmd, "PARTY")
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Not in a group.")
     end
@@ -54,12 +54,12 @@ function PBM.SendToBot(cmd, name)
             return
         end
     end
-    SendChatMessage(cmd, "WHISPER", nil, name)
+    PBM.SendChatMessage(cmd, "WHISPER", nil, name)
 end
 
 -- Send a server admin (.bot / .playerbots) command via SAY.
 function PBM.SendAdmin(cmd)
-    SendChatMessage(cmd, "SAY")
+    PBM.SendChatMessage(cmd, "SAY")
 end
 
 -- Convert a player name to a WoW unit token ("party1", "raid5", etc.).

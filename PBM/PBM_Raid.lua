@@ -1674,11 +1674,11 @@ function PBM.BuildRaidFrame(parent, fl)
             if d and d.name and d.name ~= "" then
                 if btn == "RightButton" then
                     UninviteUnit(d.name)
-                    SendChatMessage(".playerbots bot remove "..d.name, "SAY")
+                    PBM.SendChatMessage(".playerbots bot remove "..d.name, "SAY")
                     LichborneOutput("|cffC69B3APBM:|r Removed "..d.name.." from bots.", 1, 0.85, 0)
                     return
                 end
-                SendChatMessage(".playerbots bot add "..d.name, "SAY")
+                PBM.SendChatMessage(".playerbots bot add "..d.name, "SAY")
                 if LichborneAddStatus then
                     LichborneAddStatus:SetText("|cffd4af37Invited "..d.name.." to group.|r")
                 end
@@ -1828,9 +1828,9 @@ function PBM.BuildRaidFrame(parent, fl)
     -- ── Invite Raid button (anchored below raid frame) ────────
     -- Invite button lives on main frame beside Add Target/Update GS buttons
 
-    local function QueueBotAdds(names, getClassHex, label)
+    local function QueueBotAdds(names, getClassHex, label, isCurrent)
         for _, name in ipairs(names) do
-            SendChatMessage(".playerbots bot add "..name, "SAY")
+            PBM.SendChatMessage(".playerbots bot add "..name, "SAY", nil, nil, isCurrent)
             LichborneOutput("|cffC69B3APBM:|r "..label.." "..getClassHex(name)..name.."|r...",1,0.85,0)
         end
     end
@@ -1891,7 +1891,10 @@ function PBM.BuildRaidFrame(parent, fl)
         if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Logging out all bots...") end
 
         -- Always kick everyone and start fresh so we get a clean group/raid.
-        SendChatMessage(".playerbots bot remove *", "SAY")
+        local inviteFrame = CreateFrame("Frame")
+        PBM.State.activeInviteFrame = inviteFrame
+        local function InviteIsActive() return not inviteFrame.cancelled end
+        PBM.SendChatMessage(".playerbots bot remove *", "SAY", nil, nil, InviteIsActive)
 
         local inviteIndex = 1
         local waitTime = 0
@@ -1899,8 +1902,6 @@ function PBM.BuildRaidFrame(parent, fl)
         local reinviteSubPhase = "remove"
         local verifyDelay = 3
 
-        local inviteFrame = CreateFrame("Frame")
-        PBM.State.activeInviteFrame = inviteFrame
         PBM.UpdateInviteButtons()
         inviteFrame:SetScript("OnUpdate",function(_, elapsed)
             waitTime = waitTime + elapsed
@@ -1921,7 +1922,7 @@ function PBM.BuildRaidFrame(parent, fl)
                 if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Inviting "..totalCount.." players...") end
 
             elseif phase == "batch_invite" then
-                QueueBotAdds(names, GetClassHex, "Inviting")
+                QueueBotAdds(names, GetClassHex, "Inviting", InviteIsActive)
                 phase = "verify_wait"
                 verifyDelay = 2 + math.ceil(#names / 5)
                 waitTime = 0
@@ -1978,7 +1979,7 @@ function PBM.BuildRaidFrame(parent, fl)
                         return
                     end
                     local pname = names[inviteIndex]
-                    SendChatMessage(".playerbots bot remove "..pname, "SAY")
+                    PBM.SendChatMessage(".playerbots bot remove "..pname, "SAY", nil, nil, InviteIsActive)
                     LichborneOutput("|cffC69B3APBM:|r Removing "..GetClassHex(pname)..pname.."|r before re-invite...",1,0.85,0)
                     waitTime = 0
                     reinviteSubPhase = "add"
@@ -1986,7 +1987,7 @@ function PBM.BuildRaidFrame(parent, fl)
                 elseif reinviteSubPhase == "add" then
                     if waitTime < 1.0 then return end
                     local pname = names[inviteIndex]
-                    SendChatMessage(".playerbots bot add "..pname, "SAY")
+                    PBM.SendChatMessage(".playerbots bot add "..pname, "SAY", nil, nil, InviteIsActive)
                     LichborneOutput("|cffC69B3APBM:|r Re-inviting "..GetClassHex(pname)..pname.."|r...",1,0.85,0)
                     inviteIndex = inviteIndex + 1
                     waitTime = 0
@@ -2060,14 +2061,15 @@ function PBM.BuildRaidFrame(parent, fl)
         LichborneOutput("|cffC69B3APBM:|r Invite transport: |cffffcc00playerbots chat queue|r (bridge batch invite is not used).",1,0.85,0)
         if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Logging out all bots...") end
         -- Remove all bots with wildcard first
-        SendChatMessage(".playerbots bot remove *", "SAY")
+        local grpFrame = CreateFrame("Frame")
+        PBM.State.activeInviteFrame = grpFrame
+        local function InviteIsActive() return not grpFrame.cancelled end
+        PBM.SendChatMessage(".playerbots bot remove *", "SAY", nil, nil, InviteIsActive)
         local invIdx = 1
         local waited = 0
         local grpPhase = "logout_wait"
         local grpReinviteSubPhase = "remove"
         local grpVerifyDelay = 3
-        local grpFrame = CreateFrame("Frame")
-        PBM.State.activeInviteFrame = grpFrame
         PBM.UpdateInviteButtons()
         grpFrame:SetScript("OnUpdate",function(_, elapsed)
             waited = waited + elapsed
@@ -2085,7 +2087,7 @@ function PBM.BuildRaidFrame(parent, fl)
                 LichborneOutput("|cffC69B3APBM:|r Starting group invites...",1,0.85,0)
                 if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Inviting "..#names.." players...") end
             elseif grpPhase == "batch_invite" then
-                QueueBotAdds(names, GetClassHex, "Inviting")
+                QueueBotAdds(names, GetClassHex, "Inviting", InviteIsActive)
                 grpPhase = "verify_wait"
                 grpVerifyDelay = 2 + math.ceil(#names / 5)
                 waited = 0
@@ -2140,14 +2142,14 @@ function PBM.BuildRaidFrame(parent, fl)
                         return
                     end
                     local pname = names[invIdx]
-                    SendChatMessage(".playerbots bot remove "..pname, "SAY")
+                    PBM.SendChatMessage(".playerbots bot remove "..pname, "SAY", nil, nil, InviteIsActive)
                     LichborneOutput("|cffC69B3APBM:|r Removing "..GetClassHex(pname)..pname.."|r before re-invite...",1,0.85,0)
                     waited = 0
                     grpReinviteSubPhase = "add"
                 elseif grpReinviteSubPhase == "add" then
                     if waited < 1.0 then return end
                     local pname = names[invIdx]
-                    SendChatMessage(".playerbots bot add "..pname, "SAY")
+                    PBM.SendChatMessage(".playerbots bot add "..pname, "SAY", nil, nil, InviteIsActive)
                     LichborneOutput("|cffC69B3APBM:|r Re-inviting "..GetClassHex(pname)..pname.."|r...",1,0.85,0)
                     invIdx = invIdx + 1
                     waited = 0
@@ -2179,6 +2181,7 @@ function PBM.BuildRaidFrame(parent, fl)
     stopInviteBtn:SetScript("OnLeave",function() GameTooltip:Hide() end)
     stopInviteBtn:SetScript("OnClick",function()
         if PBM.State.activeInviteFrame then
+            PBM.State.activeInviteFrame.cancelled = true
             PBM.State.activeInviteFrame:SetScript("OnUpdate", nil)
             PBM.State.activeInviteFrame = nil
             PBM.SetInviteActive(false)

@@ -80,6 +80,9 @@ PBM.inventory.movButton("Move", -406, 849, 34, PBM.tips.move.inventory)
 
 PBM.inventory.wowButton("X", -126, 862, 15, 18, 13)
 .doLeft = function(pButton)
+    if PBM.inventory.request then PBM._waitFor[PBM.inventory.request.name] = nil end
+    PBM.inventory.request = nil
+    PBM.inventory.loading = false
 	PBM.inventory:Hide()
 end
 
@@ -112,7 +115,7 @@ PBM.inventory.addButton("SellGrey", -94, 768, "inv_misc_coin_03", PBM.tips.inven
 		pButton.getButton("Trade").setDisable()
 		pButton.getButton("Sell").setDisable()
 		pButton.getButton("Use").setDisable()
-		SendChatMessage("s *", "WHISPER", nil, pButton.getName())
+		PBM.SendChatMessage("s *", "WHISPER", nil, pButton.getName())
     if PBM.RefreshInventory then
     	PBM.RefreshInventory(0.5)
     end
@@ -131,7 +134,7 @@ PBM.inventory.addButton("SellVendor", -94, 731, "inv_misc_coin_04", PBM.tips.inv
 		pButton.getButton("Trade").setDisable()
 		pButton.getButton("Sell").setDisable()
 		pButton.getButton("Use").setDisable()
-		SendChatMessage("s vendor", "WHISPER", nil, pButton.getName())
+		PBM.SendChatMessage("s vendor", "WHISPER", nil, pButton.getName())
 		if PBM.RefreshInventory then
 			PBM.RefreshInventory()
 		end
@@ -204,7 +207,7 @@ end
 
 PBM.inventory.addButton("Open", -94, 322.5, "inv_misc_gift_05", PBM.tips.inventory.open)
 .doLeft = function(pButton)
-	SendChatMessage("open items", "WHISPER", nil, pButton.getName())
+	PBM.SendChatMessage("open items", "WHISPER", nil, pButton.getName())
 end
 
 local tFrame = PBM.inventory.addFrame("Items", -397, 807, 32)
@@ -297,7 +300,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R02", "|cff402000Rank|r", "TOPLEFT", 172, -16, 11)
@@ -307,7 +310,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R03", "|cff402000Rank|r", "TOPLEFT", 44, -52, 11)
@@ -317,7 +320,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R04", "|cff402000Rank|r", "TOPLEFT", 172, -52, 11)
@@ -327,7 +330,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R05", "|cff402000Rank|r", "TOPLEFT", 44, -88, 11)
@@ -337,7 +340,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R06", "|cff402000Rank|r", "TOPLEFT", 172, -88, 11)
@@ -347,7 +350,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R07", "|cff402000Rank|r", "TOPLEFT", 44, -124, 11)
@@ -357,7 +360,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R08", "|cff402000Rank|r", "TOPLEFT", 172, -124, 11)
@@ -367,7 +370,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R09", "|cff402000Rank|r", "TOPLEFT", 44, -160, 11)
@@ -377,7 +380,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R10", "|cff402000Rank|r", "TOPLEFT", 172, -160, 11)
@@ -387,7 +390,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R11", "|cff402000Rank|r", "TOPLEFT", 44, -196, 11)
@@ -397,7 +400,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R12", "|cff402000Rank|r", "TOPLEFT", 172, -196, 11)
@@ -407,7 +410,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R13", "|cff402000Rank|r", "TOPLEFT", 44, -232, 11)
@@ -417,7 +420,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R14", "|cff402000Rank|r", "TOPLEFT", 172, -232, 11)
@@ -427,7 +430,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R15", "|cff402000Rank|r", "TOPLEFT", 44, -268, 11)
@@ -437,7 +440,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.addText("R16", "|cff402000Rank|r", "TOPLEFT", 172, -268, 11)
@@ -447,7 +450,7 @@ tButton.doRight = function(pButton)
 	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
 end
 
 tOverlay.boxButton("C01", -214, 262, 16, true)
@@ -497,7 +500,7 @@ PBM.talent.wowButton(PBM.info.talent.Apply, -474, 966, 100, 20, 12).doHide()
 	if PBM.SendTalentBuild then
 		PBM.SendTalentBuild(PBM.talent.name, tValues)
 	else
-		SendChatMessage("talents apply " ..tValues, "WHISPER", nil, PBM.talent.name)
+		PBM.SendChatMessage("talents apply " ..tValues, "WHISPER", nil, PBM.talent.name)
 	end
 	pButton.doHide()
 end
@@ -509,13 +512,13 @@ local copyBtn = PBM.talent.buttons[PBM.info.talent.Copy]
 
 copyBtn.doLeft = function(pButton)
 	local tName = UnitName("target")
-	if(tName == nil or tName == "Unknown Entity") then return SendChatMessage(PBM.info.target, "SAY") end
+	if(tName == nil or tName == "Unknown Entity") then return PBM.SendChatMessage(PBM.info.target, "SAY") end
 
 	local tLocClass, tClass = UnitClass("target")
-	if(PBM.talent.class ~= PBM.toClass(tClass)) then return SendChatMessage("The Classes do not match.", "SAY") end
+	if(PBM.talent.class ~= PBM.toClass(tClass)) then return PBM.SendChatMessage("The Classes do not match.", "SAY") end
 
 	local tUnit = PBM.toUnit(PBM.talent.name)
-	if(UnitLevel(tUnit) ~= UnitLevel("target")) then return SendChatMessage("The Levels do not match.", "SAY") end
+	if(UnitLevel(tUnit) ~= UnitLevel("target")) then return PBM.SendChatMessage("The Levels do not match.", "SAY") end
 
 	local tValues = ""
 
@@ -532,7 +535,7 @@ copyBtn.doLeft = function(pButton)
 	if PBM.SendTalentBuild then
 		PBM.SendTalentBuild(tName, tValues)
 	else
-		SendChatMessage("talents apply " ..tValues, "WHISPER", nil, tName)
+		PBM.SendChatMessage("talents apply " ..tValues, "WHISPER", nil, tName)
 	end
 end
 
@@ -708,7 +711,7 @@ gApply:SetScript("OnClick", function()
     local payload = "glyph equip " .. table.concat(ids, " ")
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccff[DBG]|r " ..
         (PBM.talent.name or "?") .. " : " .. payload)
-    SendChatMessage(payload, "WHISPER", nil, PBM.talent.name)
+    PBM.SendChatMessage(payload, "WHISPER", nil, PBM.talent.name)
     gApply:Hide()
 end)
 
@@ -812,7 +815,7 @@ tTab.wowButton("Glyphs", -2, 6, 92, 17, 11)
 	copyBtn:doHide()
     local botName = PBM.talent.name
     PBM.awaitGlyphs = botName
-    SendChatMessage("glyphs", "WHISPER", nil, botName)
+    PBM.SendChatMessage("glyphs", "WHISPER", nil, botName)
 end
 
 -- GLYPHES END --
@@ -967,11 +970,13 @@ PBM.talent.setTalents = function()
 
 	local activeGroup = GetActiveTalentGroup(true) or 1
 
-    -- No talents loaded yet ? we retry in 0,1 s
-    if not GetTalentInfo(1, 1, true) then
-        TimerAfter(0.1, PBM.talent.setTalents)
-        return
+    for tab = 1, 3 do
+        for talent = 1, #tClass[tab] do
+            if not GetTalentInfo(tab, talent, true, nil, activeGroup) or
+                not GetTalentLink(tab, talent, true, nil, activeGroup) then return end
+        end
     end
+    PBM.talent.doClear()
 
     -- 2) Frame update
     PBM.talent.points = tonumber(GetUnspentTalentPoints(true))
@@ -1004,11 +1009,6 @@ PBM.talent.setTalents = function()
             local tTale = PBM.doSplit(PBM.doSplit(link, "|")[3], ":")[2]
 
             local iName, iIcon, iTier, iColumn, iRank = GetTalentInfo(i, j, true, nil, activeGroup)
-
-            if not iName then
-                TimerAfter(0.1, PBM.talent.setTalents)
-                return
-            end
 
             local tData = PBM.doSplit(tClass[i][j], ", ")
             local tMax  = #tData - 4
@@ -1099,11 +1099,16 @@ end
 local _timerFrame = CreateFrame("Frame")
 _timerFrame:SetScript("OnUpdate", function(self, elapsed)
 	if PBM.auto.talent then
+        PBM.timer.talent.waited = (PBM.timer.talent.waited or 0) + elapsed
+        if PBM.timer.talent.waited >= 15 then
+            PBM.auto.talent = false
+            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Talent data unavailable. Try inspecting again.")
+            return
+        end
 		PBM.timer.talent.elapsed = PBM.timer.talent.elapsed + elapsed
 		if PBM.timer.talent.elapsed >= PBM.timer.talent.interval then
 			PBM.talent.setTalents()
 			PBM.timer.talent.elapsed = 0
-			PBM.auto.talent = false
 		end
 	end
 end)
@@ -1117,6 +1122,8 @@ _whisperFrame:RegisterEvent("CHAT_MSG_WHISPER")
 _whisperFrame:SetScript("OnEvent", function(self, event, msg, sender)
 	local waitFor = PBM._waitFor[sender]
 	if not waitFor then return end
+    if (waitFor == "INVENTORY" or waitFor == "ITEM") and
+        (not PBM.inventory.request or PBM.inventory.request.name ~= sender) then return end
 
 	-- ── Inventory ──
 	if waitFor == "INVENTORY" and PBM.isInside(msg, "Inventory") then
@@ -1127,11 +1134,12 @@ _whisperFrame:SetScript("OnEvent", function(self, event, msg, sender)
 		PBM.inventory.name = sender
 		tItems.index = 0
 		PBM._waitFor[sender] = "ITEM"
-		SendChatMessage("stats", "WHISPER", nil, sender)
+		PBM.SendChatMessage("stats", "WHISPER", nil, sender)
 		return
 	end
 
 	if waitFor == "ITEM" and (PBM.beInside(msg, "Bag,", "Dur") or PBM.beInside(msg, "背包", "耐久度")) then
+		PBM.inventory.loading = false
 		PBM.inventory:Show()
 		PBM._waitFor[sender] = nil
 		return
@@ -1154,7 +1162,7 @@ _whisperFrame:SetScript("OnEvent", function(self, event, msg, sender)
 		tSpellbook.from = 1
 		tSpellbook.to = 16
 		PBM._waitFor[sender] = "SPELL"
-		SendChatMessage("stats", "WHISPER", nil, sender)
+		PBM.SendChatMessage("stats", "WHISPER", nil, sender)
 		return
 	end
 
@@ -1236,6 +1244,7 @@ function PBM.OpenTalentWindow(botName)
 	NotifyInspect(unit)
 	PBM.auto.talent = true
 	PBM.timer.talent.elapsed = 0
+    PBM.timer.talent.waited = 0
 end
 
 --- Open the inventory window for a bot.
@@ -1249,13 +1258,20 @@ function PBM.OpenInventoryWindow(botName)
 		return
 	end
 
+    local previous = PBM.inventory.request
+    if previous and (PBM._waitFor[previous.name] == "INVENTORY" or
+        PBM._waitFor[previous.name] == "BRIDGE_INVENTORY" or PBM._waitFor[previous.name] == "ITEM") then
+        PBM._waitFor[previous.name] = nil
+    end
+    PBM.inventory.request = { name = botName }
+    PBM.inventory.loading = true
+    PBM.inventory:Hide()
 	PBM._waitFor[botName] = "INVENTORY"
-	PBM.inventory.name = botName
 	if PBM.BridgeRequestInventory and PBM.BridgeRequestInventory(botName) then
 		PBM._waitFor[botName] = "BRIDGE_INVENTORY"
 		return
 	end
-	SendChatMessage("items", "WHISPER", nil, botName)
+	PBM.SendChatMessage("items", "WHISPER", nil, botName)
 end
 
 --- Open the spellbook window for a bot.
@@ -1271,5 +1287,5 @@ function PBM.OpenSpellbookWindow(botName)
 
 	PBM._waitFor[botName] = "SPELLBOOK"
 	PBM.spellbook.name = botName
-	SendChatMessage("spells", "WHISPER", nil, botName)
+	PBM.SendChatMessage("spells", "WHISPER", nil, botName)
 end

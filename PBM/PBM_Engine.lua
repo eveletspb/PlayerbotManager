@@ -44,12 +44,12 @@ PBM.doSlash = function(pCommand, pArguments)
 		end
 	end
 
-	SendChatMessage(PBM.info.command, "SAY")
+	PBM.SendChatMessage(PBM.info.command, "SAY")
 	return false
 end
 
 PBM.doDot = function(pCommand, oArguments)
-	SendChatMessage(pCommand .. " " .. oArguments)
+	PBM.SendChatMessage(pCommand .. " " .. oArguments)
 	return false
 end
 
@@ -58,14 +58,14 @@ PBM.doDotWithTarget = function(pCommand, oArguments)
 
 	if(tName ~= nil and tName ~= "Unknown Entity") then
 		if(oArguments ~= nil)
-		then SendChatMessage(pCommand .. " " .. tName .. " " .. oArguments)
-		else SendChatMessage(pCommand .. " " .. tName)
+		then PBM.SendChatMessage(pCommand .. " " .. tName .. " " .. oArguments)
+		else PBM.SendChatMessage(pCommand .. " " .. tName)
 		end
 
 		return true
 	end
 
-	SendChatMessage(PBM.info.target, "SAY")
+	PBM.SendChatMessage(PBM.info.target, "SAY")
 	return false
 end
 
@@ -211,7 +211,7 @@ PBM.isTarget = function()
 		return true
 	end
 
-	SendChatMessage(PBM.info.target, "SAY")
+	PBM.SendChatMessage(PBM.info.target, "SAY")
 	return false
 end
 
@@ -534,10 +534,10 @@ PBM.SpellToMacro = function(pName, pSpell, pTexture)
 	local _, tAmount = GetNumMacros()
 
 	if(pSpell == nil or pSpell == 0) then
-		return SendChatMessage(PBM.info.spell, "SAY")
+		return PBM.SendChatMessage(PBM.info.spell, "SAY")
 	end
 	if(tAmount == 18) then
-		return SendChatMessage(PBM.info.macro, "SAY")
+		return PBM.SendChatMessage(PBM.info.macro, "SAY")
 	end
 
 	local tMacro = string.sub(pName, 1, 14) .. tAmount
@@ -560,11 +560,11 @@ PBM.ActionToTarget = function(pAction, oTarget)
 	local tName = PBM.IF(oTarget == nil, UnitName("target"), oTarget)
 
 	if(tName ~= nil and tName ~= "Unknown Entity") then
-		SendChatMessage(pAction, "WHISPER", nil, tName)
+		PBM.SendChatMessage(pAction, "WHISPER", nil, tName)
 		return true
 	end
 
-	SendChatMessage(PBM.info.target, "SAY")
+	PBM.SendChatMessage(PBM.info.target, "SAY")
 	return false
 end
 
@@ -572,36 +572,36 @@ PBM.ActionToTargetOrGroup = function(pAction)
 	local tName = UnitName("target")
 
 	if(tName ~= nil and tName ~= "Unknown Entity") then
-		SendChatMessage(pAction, "WHISPER", nil, tName)
+		PBM.SendChatMessage(pAction, "WHISPER", nil, tName)
 		return true
 	end
 
 	if(GetNumRaidMembers() > 5) then
-		SendChatMessage(pAction, "RAID")
+		PBM.SendChatMessage(pAction, "RAID")
 		return true
 	end
 
 	if(GetNumPartyMembers() > 0) then
-		SendChatMessage(pAction, "PARTY")
+		PBM.SendChatMessage(pAction, "PARTY")
 		return true
 	end
 
-	SendChatMessage(PBM.info.neither, "SAY")
+	PBM.SendChatMessage(PBM.info.neither, "SAY")
 	return false
 end
 
 PBM.ActionToGroup = function(pAction)
 	if(GetNumRaidMembers() > 5) then
-		SendChatMessage(pAction, "RAID")
+		PBM.SendChatMessage(pAction, "RAID")
 		return true
 	end
 
 	if(GetNumPartyMembers() > 0) then
-		SendChatMessage(pAction, "PARTY")
+		PBM.SendChatMessage(pAction, "PARTY")
 		return true
 	end
 
-	SendChatMessage(PBM.info.group, "SAY")
+	PBM.SendChatMessage(PBM.info.group, "SAY")
 	return false
 end
 
@@ -1511,7 +1511,7 @@ PBM.SellAllBots = function(pCommand)
 		if type(btn) == "table" then
 			local botName = btn.name or (btn.getName and btn.getName()) or key
 			if botName and botName ~= "" then
-				SendChatMessage(pCommand, "WHISPER", nil, botName)
+				PBM.SendChatMessage(pCommand, "WHISPER", nil, botName)
 				count = count + 1
 			end
 		end
@@ -1549,7 +1549,7 @@ PBM.MaintenanceAllBots = function()
 		if type(btn) == "table" then
 			local botName = btn.name or (btn.getName and btn.getName()) or key
 			if botName and botName ~= "" then
-				SendChatMessage("maintenance", "WHISPER", nil, botName)
+				PBM.SendChatMessage("maintenance", "WHISPER", nil, botName)
 				count = count + 1
 			end
 		end
@@ -1752,49 +1752,16 @@ end
 -- Rafraîchit l’inventaire du bot actuellement affiché dans la frame Inventory
 -- en rejouant le même flux que le bouton "Inventory" (waitFor = "INVENTORY" + "items").
 PBM.RefreshInventory = function(delay)
-	-- Si la frame d’inventaire n’est pas visible ou pas encore initialisée, on ne fait rien
-	if not PBM.inventory or not PBM.inventory:IsVisible() then
-		return false
-	end
-
-	local botName = PBM.inventory.name
-	if not botName or botName == "" then
-		return false
-	end
-
-	-- On retrouve le bouton "Units" correspondant à ce bot
-	local frames   = PBM.frames
-	if not frames then return false end
-
-	local multiBar = frames["MultiBar"]
-	if not multiBar or not multiBar.frames or not multiBar.frames["Units"] then
-		return false
-	end
-
-	local units = multiBar.frames["Units"]
-	if not units.buttons or not units.buttons[botName] then
-		return false
-	end
-
-	local function doRefresh()
-		-- Entre le moment où on programme le refresh et l’exécution, il est possible
-		-- que la frame ou le bouton n’existent plus : on recheck.
-		if not units.buttons or not units.buttons[botName] then
-			return
-		end
-
-		-- On relance le flux INVENTORY -> ITEM comme lors de l’ouverture de l’inventaire
-		units.buttons[botName].waitFor = "INVENTORY"
-		SendChatMessage("items", "WHISPER", nil, botName)
-	end
-
-	-- Si on a un délai > 0 et TimerAfter dispo, on planifie le refresh un peu plus tard
-	if type(delay) == "number" and delay > 0 and PBM.TimerAfter then
-		PBM.TimerAfter(delay, doRefresh)
-	else
-		-- Sinon on rafraîchit immédiatement (comportement d’origine)
-		doRefresh()
-	end
-
-	return true
+    if not PBM.inventory or not PBM.inventory:IsVisible() then return false end
+    local botName = PBM.inventory.name
+    local request = PBM.inventory.request
+    if not botName or botName == "" then return false end
+    PBM.AfterChatQueue(function()
+        PBM.TimerAfter(delay or 0, function()
+            if PBM.inventory:IsVisible() and PBM.inventory.name == botName and PBM.inventory.request == request then
+                PBM.OpenInventoryWindow(botName)
+            end
+        end)
+    end)
+    return true
 end

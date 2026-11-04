@@ -1,4 +1,5 @@
 PBM.addItem = function(pFrame, pInfo)
+    local botName = PBM.inventory.name
 	local tInfo = PBM.doSplit(pInfo, "|")
 	local tID = PBM.doSplit(tInfo[3], ":")[2]
 
@@ -27,12 +28,11 @@ PBM.addItem = function(pFrame, pInfo)
 		--local tName = PBM.inventory.name
 
     tButton.doLeft = function(pButton)
+        if PBM.inventory.loading or PBM.inventory.name ~= botName then return end
         local tAction = PBM.inventory.action
-        -- Nom du bot cible (destinataire du whisper), on évite de masquer tName (nom de l'objet)
-        local botName = PBM.inventory.name
 
 		if(tAction == "") then
-			SendChatMessage(PBM.info.action, "SAY")
+			PBM.SendChatMessage(PBM.info.action, "SAY")
 			return
 		end
 
@@ -49,16 +49,16 @@ PBM.addItem = function(pFrame, pInfo)
 
         if(tAction == "s" and PBM.isTarget()) then
 			if(pButton.item.id == "6948") then
-				return SendChatMessage(PBM.info.itemsellalert, "SAY")
+				return PBM.SendChatMessage(PBM.info.itemsellalert, "SAY")
 			end
 
 			if(PBM.isInside(pButton.item.info or "", "%f[%a][Kk]ey%f[%A]")) then
-                return SendChatMessage(PBM.info.keydestroyalert, "SAY")
+                return PBM.SendChatMessage(PBM.info.keydestroyalert, "SAY")
 			end
 
 			-- Envoi de la commande "s [item]" au bot dont l’inventaire est ouvert
 			--SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, tName)
-			SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, botName)
+			PBM.SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, botName)
 
 			-- On masque l’item cliqué pour un feedback immédiat
 			pButton:Hide()
@@ -73,7 +73,7 @@ PBM.addItem = function(pFrame, pInfo)
 
 		if(tAction == "e" or tAction == "u" or tAction == "give") then
 			--SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, tName)
-			SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, botName)
+			PBM.SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, botName)
 			return
 		end
 
@@ -93,19 +93,19 @@ PBM.addItem = function(pFrame, pInfo)
 						hideOnEscape = 1,
 						OnAccept = function(self, data)
 							if not data or not data.button then return end
-							SendChatMessage("destroy" .. " " .. data.button.tip, "WHISPER", nil, data.tName)
+							PBM.SendChatMessage("destroy" .. " " .. data.tip, "WHISPER", nil, data.tName)
 							data.button:Hide()
 						end,
 					}
 				end
 				--local data = { button = pButton, tName = tName }
-				local data = { button = pButton, tName = botName }
+				local data = { button = pButton, tName = botName, tip = pButton.tip }
 				StaticPopup_Show("MULTIBOT_CONFIRM_DESTROY", pButton.item.link, nil, data)
 				return
 			end
 			-- Pas de confirmation requise
 			--SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, tName)
-			SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, botName)
+			PBM.SendChatMessage(tAction .. " " .. pButton.tip, "WHISPER", nil, botName)
 			pButton:Hide()
 			return
 		end
