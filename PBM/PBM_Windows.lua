@@ -1095,6 +1095,7 @@ PBM.talent.setTalents = function()
     PBM.talent.doState()
 	PBM.talent:Show()
 	PBM.auto.talent = false
+    PBM.SetButtonsLocked(false)
 end
 
 PBM.talent.doState = function()
@@ -1157,6 +1158,7 @@ _timerFrame:SetScript("OnUpdate", function(self, elapsed)
         PBM.timer.talent.waited = (PBM.timer.talent.waited or 0) + elapsed
         if PBM.timer.talent.waited >= 15 then
             PBM.auto.talent = false
+            PBM.SetButtonsLocked(false)
             DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Talent data unavailable. Try inspecting again.")
             return
         end
@@ -1274,7 +1276,7 @@ function PBM.OpenTalentWindow(botName)
 
 	-- InspectUnit conflict prevention with PBM
 	if PBM and PBM.State then
-		if PBM.State.LichborneInspectTarget then
+		if PBM.State.buttonsLocked or PBM.State.LichborneInspectTarget or PBM.State.LichborneSpecTarget then
 			DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Cannot inspect — PBM gear/spec scan in progress.")
 			return
 		end
@@ -1302,6 +1304,7 @@ function PBM.OpenTalentWindow(botName)
 	-- Fire InspectUnit and start the 3-second timer
 	NotifyInspect(unit)
 	PBM.auto.talent = true
+    PBM.SetButtonsLocked(true)
 	PBM.timer.talent.elapsed = 0
     PBM.timer.talent.waited = 0
 end

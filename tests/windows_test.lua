@@ -20,6 +20,8 @@ local function widget()
     function f.setText(key,text) f.texts[key].text=text end
     function f.setButton(key,_,tip) f.buttons[key].tip=tip end
     function f:SetChecked(value) self.checked=value end
+    function f:Enable() self.enabled=true end
+    function f:Disable() self.enabled=false end
     function f.setAmount() end
     function f.setAlpha() return f end
     function f.setLevel() return f end
@@ -39,6 +41,7 @@ local function widget()
 end
 function CreateFrame() return widget() end
 function GetNumMacroIcons() return 0 end
+function table.wipe(t) for k in pairs(t) do t[k]=nil end end
 function UnitName() return 'Owner' end
 function GetNumRaidMembers() return 0 end
 function GetNumPartyMembers() return 0 end
@@ -49,6 +52,7 @@ function GetItemIcon() return 'icon' end
 function GetItemInfo() return 'Item','|cffffffff|Hitem:100:0|h[Item]|h|r',1 end
 DEFAULT_CHAT_FRAME={AddMessage=function() end}
 UIParent=widget()
+dofile('PBM/PBM_UI.lua')
 dofile('PBM/PBM_Bridge.lua')
 dofile('PBM/PBM_Engine.lua')
 PBM.newFrame=function() return widget() end
@@ -113,6 +117,27 @@ assert(PBM.RefreshInventory(0.1)); PBM.OpenInventoryWindow('B'); count=#sent
 for _, f in ipairs(frames) do if f.scripts.OnUpdate and f~=talentTimer and f.shown then f.scripts.OnUpdate(f,0.1) end end
 assert(#sent==count)
 -- Use the actual talent retry timer: missing data retries and stops within 15 seconds.
+function PBM.NameToUnit() return 'party1' end
+function UnitLevel() return 80 end
+function CheckInteractDistance() return true end
+function UnitClass() return 'Mage','MAGE' end
+local inspected
+function NotifyInspect(unit) inspected=unit end
+-- The lock covers the delay before a target scan has an inspect target, too.
+PBM.SetButtonsLocked(true)
+PBM.OpenTalentWindow('A'); assert(inspected==nil)
+PBM.SetButtonsLocked(false)
+PBM.State.LichborneSpecTarget=1
+PBM.OpenTalentWindow('A'); assert(inspected==nil)
+PBM.State.LichborneSpecTarget=nil
+LichborneUpdateTargetSpecBtn=widget()
+LichborneUpdateGSBtn=widget()
+PBM.OpenTalentWindow('A')
+assert(inspected=='party1' and PBM.auto.talent)
+assert(not LichborneUpdateTargetSpecBtn.enabled and not LichborneUpdateGSBtn.enabled)
+-- Stop/other UI unlocks cannot enable scans while the talent read is pending.
+PBM.SetButtonsLocked(false)
+assert(PBM.State.buttonsLocked and not LichborneUpdateTargetSpecBtn.enabled)
 PBM.talent.class='Mage'; PBM.data.talent={talents={Mage={{'test'},{}, {}}},arrows={Mage={{},{},{}}}}
 function GetActiveTalentGroup() return 1 end
 local reads=0
@@ -121,16 +146,17 @@ function GetTalentLink() return nil end
 PBM.auto.talent=true; PBM.timer.talent.elapsed=0; PBM.timer.talent.waited=0
 for _=1,15 do talentTimer.scripts.OnUpdate(talentTimer,1) end
 assert(reads==4 and not PBM.auto.talent)
+assert(not PBM.State.buttonsLocked and LichborneUpdateTargetSpecBtn.enabled and LichborneUpdateGSBtn.enabled)
 -- The same retry path succeeds when the inspect data becomes available.
 function GetTalentInfo() return 'Talent','icon',1,1,0 end
 function GetTalentLink() return '|cffffffff|Htalent:123:0|h[Talent]|h|r' end
 function GetUnspentTalentPoints() return 1 end
-function table.wipe(t) for k in pairs(t) do t[k]=nil end end
 PBM.data.talent.talents.Mage={{'0, 0, 1, 1, 42'},{},{}}
 PBM.talent.name='A'
-PBM.auto.talent=true; PBM.timer.talent.elapsed=0; PBM.timer.talent.waited=0
+PBM.OpenTalentWindow('A')
 for _=1,3 do talentTimer.scripts.OnUpdate(talentTimer,1) end
 assert(PBM.talent:IsVisible() and not PBM.auto.talent and PBM.talent.frames.Tab1.buttons[1])
+assert(not PBM.State.buttonsLocked and LichborneUpdateTargetSpecBtn.enabled)
 local function tick(dt)
     for _,frame in ipairs(frames) do
         if frame.scripts.OnUpdate and frame~=talentTimer and frame.shown then frame.scripts.OnUpdate(frame,dt) end

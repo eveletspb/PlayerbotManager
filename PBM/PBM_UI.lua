@@ -30,6 +30,8 @@ function PBM.DBG(msg)
 end
 
 function PBM.SetButtonsLocked(locked)
+    locked = locked or (PBM.auto and PBM.auto.talent) or false
+    PBM.State.buttonsLocked = locked
     for _, name in ipairs(PBM.State.LOCKABLE_BUTTONS) do
         local btn = _G[name]
         if btn then
