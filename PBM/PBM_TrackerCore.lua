@@ -378,8 +378,8 @@ local function OnFirstShow()
     local SetScanActive, AddGroupMembers
     local activeInspectFrame = nil  -- shared by all scan phases; Stop button kills it
 
-    local function ApplyBridgeSpec(botName, rowIndex, firstTree, secondTree, thirdTree)
-        local row = LichborneTrackerDB.rows[rowIndex]
+    local function ApplyBridgeSpec(botName, firstTree, secondTree, thirdTree)
+        local _, row = PBM.FindTrackedRowIndexByName(botName)
         if not row then return false end
         local specNames = PBM.CLASS_SPECS[row.cls or ""]
         if not specNames then return false end
@@ -717,7 +717,6 @@ local function OnFirstShow()
                 if spElapsed < 0.5 then return end
                 spElapsed = 0
                 PBM.State.LichborneSpecTarget = spDi; PBM.State.LichborneInspectUnit = "target"
-                LichborneTrackerDB.rows[spDi].spec = ""
                 PBM.DBG("InspectUnit(target) -> Spec scan for |cffffff88"..((LichborneTrackerDB.rows[spDi] and LichborneTrackerDB.rows[spDi].name) or "?").."|r UnitExists=|cffffff88"..tostring(UnitExists("target")).."|r InRange=|cffffff88"..tostring(CheckInteractDistance("target",1)).."|r")
                 InspectUnit("target"); PBM.State.LichborneSpecGUID = UnitGUID("target"); if not PBM.State.LichborneSpecGUID then PBM.DBG("|cffff4444[NIL]|r UnitGUID(target)=nil â€” GUID capture skipped") end; PBM.State.specWait = 0
                 spPhase = "wait"
@@ -885,7 +884,6 @@ local function OnFirstShow()
                 if not foundDi then LichborneOutput("|cffC69B3APBM:|r Skipping "..tostring(targetName).." (not tracked)",1,0.6,0.3); idx=idx+1; return end
                 LichborneAddStatus:SetText("Reading Specialization |cffffff88"..tostring(targetName).."|r... ("..(idx).."/"..#units..")")
                 PBM.State.LichborneSpecTarget = foundDi; PBM.State.LichborneInspectUnit = unit
-                if LichborneTrackerDB.rows[foundDi] then LichborneTrackerDB.rows[foundDi].spec="" end
                 PBM.DBG("InspectUnit("..unit..") -> group Spec for |cffffff88"..tostring(targetName).."|r ("..idx.."/"..#units..") UnitExists=|cffffff88"..tostring(UnitExists(unit)).."|r InRange=|cffffff88"..tostring(CheckInteractDistance(unit,1)).."|r")
                 InspectUnit(unit); PBM.State.LichborneSpecGUID = UnitGUID(unit); if not PBM.State.LichborneSpecGUID then PBM.DBG("|cffff4444[NIL]|r UnitGUID("..unit..")=nil â€” GUID capture skipped") end; PBM.State.specWait=0; idx=idx+1; inspecting=true; elapsed=0
             end)
@@ -1165,7 +1163,6 @@ local function OnFirstShow()
                             sIdx = sIdx + 1; return
                         end
                         LichborneAddStatus:SetText("Specialization scan |cffffff88"..tostring(targetName).."|r... ("..sIdx.."/"..#units..")")
-                        if LichborneTrackerDB.rows[foundDi] then LichborneTrackerDB.rows[foundDi].spec = "" end
                         sInspecting = true; sElapsed = 0
 
                         local function StartLegacySpec()
@@ -1185,7 +1182,7 @@ local function OnFirstShow()
                             local sent = PBM.BridgeRequestDetail(targetName, function(detailName, race, gender, className, level, firstTree, secondTree, thirdTree)
                                 if activeInspectFrame ~= sFrame then return end
                                 bridgeSpecPending = false
-                                if detailName and ApplyBridgeSpec(targetName, foundDi, firstTree, secondTree, thirdTree) then
+                                if detailName and ApplyBridgeSpec(targetName, firstTree, secondTree, thirdTree) then
                                     PBM.RefreshRows()
                                     if PBM.State.overviewRowFrames and #PBM.State.overviewRowFrames > 0 then PBM.RefreshOverviewRows() end
                                     if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end

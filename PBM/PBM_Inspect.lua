@@ -19,8 +19,14 @@ local CACHE_MAX_RETRIES = 6
 local SHOULDER_RETRY_MAX = 2
 
 local function CalcGS()
-    local di = PBM.State.LichborneInspectTarget
-    if not di then return end
+    if not PBM.State.LichborneInspectTarget then return end
+    local inspUnit = PBM.State.LichborneInspectUnit or "target"
+    local di = PBM.FindTrackedRowIndexByName(UnitName(inspUnit))
+    if not di or (PBM.State.LichborneInspectGUID and UnitGUID(inspUnit) ~= PBM.State.LichborneInspectGUID) then
+        PBM.State.LichborneInspectTarget = nil
+        return
+    end
+    PBM.State.LichborneInspectTarget = di
     -- Reset retry counters when starting a new player (handles 25s cap forced advance)
     if di ~= PBM.State.lastCalcGsDi then
         PBM.State.LichborneInspectRetries = 0
@@ -28,12 +34,7 @@ local function CalcGS()
         PBM.State.LichborneShoulderRetries = 0
         PBM.State.lastCalcGsDi = di
     end
-    local inspUnit = PBM.State.LichborneInspectUnit or "target"
     local rowName = (LichborneTrackerDB.rows[di] and LichborneTrackerDB.rows[di].name) or "?"
-    if not LichborneTrackerDB.rows[di] then
-        PBM.DBG("|cffff4444[NIL]|r LichborneTrackerDB.rows["..tostring(di).."] is nil mid-scan - aborting CalcGS")
-        PBM.State.LichborneInspectTarget = nil; return
-    end
     local slots = {1,2,3,15,5,9,10,6,7,8,11,12,13,14,16,17,18}
     local total, count = 0, 0
 
@@ -210,8 +211,7 @@ local function CalcGS()
         LichborneOutput(hex..name.."|r: iLvl |cffffff00"..ilvl.."|r  GS |cffffff00"..realGs.."|r ("..count.." slots)", 1, 0.85, 0)
         PBM.DBG("|cff44ff44SUCCESS|r |cffffff88"..rowName.."|r iLvl="..ilvl.." GS="..realGs.." slots="..count)
 
-        local targetName = UnitName("target")
-        if targetName and targetName == UnitName("player") then
+        if UnitIsUnit(inspUnit, "player") then
             local specNames = PBM.CLASS_SPECS[rowData.cls or ""]
             if specNames then
                 local bestTab, bestPoints = 1, 0
@@ -292,6 +292,7 @@ inspectFrame:SetScript("OnEvent", function(_, event, guid)
     local guidInfo = guid and ("|cffffff88"..guid.."|r") or "|cff888888(no GUID)|r"
     if guid and PBM.State.LichborneInspectGUID and guid ~= PBM.State.LichborneInspectGUID then
         PBM.DBG("|cffff4444GUID MISMATCH (GS)|r got "..guidInfo.." expected |cffffff88"..PBM.State.LichborneInspectGUID.."|r for |cffffff88"..(LichborneTrackerDB.rows[di] and LichborneTrackerDB.rows[di].name or "?").."|r")
+        return
     else
         PBM.DBG("INSPECT_READY (GS) for |cffffff88"..(LichborneTrackerDB.rows[di] and LichborneTrackerDB.rows[di].name or "?").."|r GUID="..guidInfo)
     end

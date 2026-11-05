@@ -11,15 +11,20 @@ PBM.State.specWait = 0
 PBM.State.LichborneSpecGUID = nil
 
 local function CalcSpec()
-    local di = PBM.State.LichborneSpecTarget
-    if not di then return end
+    if not PBM.State.LichborneSpecTarget then return end
+    local unit = PBM.State.LichborneInspectUnit or "target"
+    local di = PBM.FindTrackedRowIndexByName(UnitName(unit))
+    if not di or (PBM.State.LichborneSpecGUID and UnitGUID(unit) ~= PBM.State.LichborneSpecGUID) then
+        PBM.State.LichborneSpecTarget = nil
+        return
+    end
+    PBM.State.LichborneSpecTarget = di
     -- Reset retry counter when starting a new player (handles 25s cap forced advance)
     if di ~= PBM.State.lastCalcSpecDi then
         PBM.State.specRetries = 0
         PBM.State.lastCalcSpecDi = di
     end
     local rowData = LichborneTrackerDB.rows[di]
-    if not rowData then PBM.State.LichborneSpecTarget = nil; PBM.State.specRetries = 0; return end
 
     local cls = rowData.cls or ""
     local specNames = PBM.CLASS_SPECS[cls]
@@ -33,7 +38,7 @@ local function CalcSpec()
 
     -- WotLK 3.3.5a: pass inspect=true to read target's talents
     local inspectSelf = (PBM.State.LichborneInspectUnit and UnitIsUnit(PBM.State.LichborneInspectUnit, "player"))
-    local inspFlag = inspectSelf and false or true
+    local inspFlag = not inspectSelf
     local activeGroup = (GetActiveTalentGroup and GetActiveTalentGroup(inspFlag)) or 1
     local treePts = {0, 0, 0}
     for tab = 1, 3 do
@@ -126,6 +131,7 @@ specFrame:SetScript("OnEvent", function(_, event, guid)
     local guidInfo = guid and ("|cffffff88"..guid.."|r") or "|cff888888(no GUID)|r"
     if guid and PBM.State.LichborneSpecGUID and guid ~= PBM.State.LichborneSpecGUID then
         PBM.DBG("|cffff4444GUID MISMATCH (Spec)|r got "..guidInfo.." expected |cffffff88"..PBM.State.LichborneSpecGUID.."|r for |cffffff88"..(LichborneTrackerDB.rows[PBM.State.LichborneSpecTarget] and LichborneTrackerDB.rows[PBM.State.LichborneSpecTarget].name or "?").."|r")
+        return
     else
         PBM.DBG("INSPECT_READY (Spec) for |cffffff88"..(LichborneTrackerDB.rows[PBM.State.LichborneSpecTarget] and LichborneTrackerDB.rows[PBM.State.LichborneSpecTarget].name or "?").."|r GUID="..guidInfo)
     end
