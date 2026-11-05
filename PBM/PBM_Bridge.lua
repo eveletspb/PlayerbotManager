@@ -359,8 +359,7 @@ function PBM.BridgeRequestInventory(botName)
 
     local function FallbackInventory()
         if request and PBM.inventory.request ~= request then return end
-        if PBM._waitFor then PBM._waitFor[botName] = "INVENTORY" end
-        PBM.SendChatMessage("items", "WHISPER", nil, botName)
+        PBM.RequestLegacyInventory(botName)
     end
 
     local function OnFrame(opcode, fields)

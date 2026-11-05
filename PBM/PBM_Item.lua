@@ -1,4 +1,5 @@
 PBM.addItem = function(pFrame, pInfo)
+    if type(pInfo) ~= "string" or not pInfo:match("^|c%x%x%x%x%x%x%x%x|Hitem:%d+:[^|]*|h%[.-%]|h|r") then return end
     local botName = PBM.inventory.name
 	local tInfo = PBM.doSplit(pInfo, "|")
 	local tID = PBM.doSplit(tInfo[3], ":")[2]
@@ -83,8 +84,8 @@ PBM.addItem = function(pFrame, pInfo)
 			if(PBM.isInside(pButton.item.info, "%f[%a][Kk]ey%f[%A]")) then needsConfirm = true end
 			if(pButton.item.rare > 3) then needsConfirm = true end -- Épique ou mieux
 			if needsConfirm then
-				if not StaticPopupDialogs["MULTIBOT_CONFIRM_DESTROY"] then
-					StaticPopupDialogs["MULTIBOT_CONFIRM_DESTROY"] = {
+				if not StaticPopupDialogs["PBM_CONFIRM_DESTROY"] then
+					StaticPopupDialogs["PBM_CONFIRM_DESTROY"] = {
 						text = PBM.info.itemdestroyalert,
 						button1 = OKAY,
 						button2 = CANCEL,
@@ -100,7 +101,7 @@ PBM.addItem = function(pFrame, pInfo)
 				end
 				--local data = { button = pButton, tName = tName }
 				local data = { button = pButton, tName = botName, tip = pButton.tip }
-				StaticPopup_Show("MULTIBOT_CONFIRM_DESTROY", pButton.item.link, nil, data)
+				StaticPopup_Show("PBM_CONFIRM_DESTROY", pButton.item.link, nil, data)
 				return
 			end
 			-- Pas de confirmation requise

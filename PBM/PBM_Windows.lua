@@ -19,6 +19,26 @@ PBM.data   = PBM.data   or {}
 PBM.frames = PBM.frames or {}
 PBM._waitFor = {}  -- [botName] = state string
 
+local function ArmWindowTimeout(window, request)
+    PBM.AfterChatQueue(function()
+        PBM.TimerAfter(15, function()
+            if window.request ~= request or not window.loading then return end
+            PBM._waitFor[request.name] = nil
+            window.request = nil
+            window.loading = false
+            window:Hide()
+            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Timed out waiting for " .. request.name .. " data. Try again.")
+        end)
+    end)
+end
+
+function PBM.RequestLegacyInventory(botName)
+    local request = PBM.inventory.request
+    PBM._waitFor[botName] = "INVENTORY"
+    PBM.SendChatMessage("items", "WHISPER", nil, botName, function() return PBM.inventory.request == request end)
+    ArmWindowTimeout(PBM.inventory, request)
+end
+
 -- ── Info strings (localization defaults) ─────────────────────
 PBM.info = PBM.info or {}
 PBM.info.talent = PBM.info.talent or {
@@ -290,6 +310,9 @@ end
 
 tOverlay.wowButton("X", 16, 336, 15, 18, 11)
 .doLeft = function(pButton)
+    if PBM.spellbook.request then PBM._waitFor[PBM.spellbook.request.name] = nil end
+    PBM.spellbook.request = nil
+    PBM.spellbook.loading = false
 	PBM.spellbook:Hide()
 end
 
@@ -297,160 +320,192 @@ tOverlay.addText("R01", "|cff402000Rank|r", "TOPLEFT", 44, -16, 11)
 tOverlay.addText("T01", "|cffffcc00Title|r", "TOPLEFT", 30, -2, 12)
 local tButton = tOverlay.addButton("S01", -230, 264, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R02", "|cff402000Rank|r", "TOPLEFT", 172, -16, 11)
 tOverlay.addText("T02", "|cffffcc00Title|r", "TOPLEFT", 159, -2, 12)
 local tButton = tOverlay.addButton("S02", -101, 264, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R03", "|cff402000Rank|r", "TOPLEFT", 44, -52, 11)
 tOverlay.addText("T03", "|cffffcc00Title|r", "TOPLEFT", 30, -38, 12)
 local tButton = tOverlay.addButton("S03", -230, 228, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R04", "|cff402000Rank|r", "TOPLEFT", 172, -52, 11)
 tOverlay.addText("T04", "|cffffcc00Title|r", "TOPLEFT", 159, -38, 12)
 local tButton = tOverlay.addButton("S04", -101, 228, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R05", "|cff402000Rank|r", "TOPLEFT", 44, -88, 11)
 tOverlay.addText("T05", "|cffffcc00Title|r", "TOPLEFT", 30, -74, 12)
 local tButton = tOverlay.addButton("S05", -230, 192, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R06", "|cff402000Rank|r", "TOPLEFT", 172, -88, 11)
 tOverlay.addText("T06", "|cffffcc00Title|r", "TOPLEFT", 159, -74, 12)
 local tButton = tOverlay.addButton("S06", -101, 192, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R07", "|cff402000Rank|r", "TOPLEFT", 44, -124, 11)
 tOverlay.addText("T07", "|cffffcc00Title|r", "TOPLEFT", 30, -110, 12)
 local tButton = tOverlay.addButton("S07", -230, 156, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R08", "|cff402000Rank|r", "TOPLEFT", 172, -124, 11)
 tOverlay.addText("T08", "|cffffcc00Title|r", "TOPLEFT", 159, -110, 12)
 local tButton = tOverlay.addButton("S08", -101, 156, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R09", "|cff402000Rank|r", "TOPLEFT", 44, -160, 11)
 tOverlay.addText("T09", "|cffffcc00Title|r", "TOPLEFT", 30, -146, 12)
 local tButton = tOverlay.addButton("S09", -230, 120, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R10", "|cff402000Rank|r", "TOPLEFT", 172, -160, 11)
 tOverlay.addText("T10", "|cffffcc00Title|r", "TOPLEFT", 159, -146, 12)
 local tButton = tOverlay.addButton("S10", -101, 120, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R11", "|cff402000Rank|r", "TOPLEFT", 44, -196, 11)
 tOverlay.addText("T11", "|cffffcc00Title|r", "TOPLEFT", 30, -182, 12)
 local tButton = tOverlay.addButton("S11", -230, 84, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R12", "|cff402000Rank|r", "TOPLEFT", 172, -196, 11)
 tOverlay.addText("T12", "|cffffcc00Title|r", "TOPLEFT", 159, -182, 12)
 local tButton = tOverlay.addButton("S12", -101, 84, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R13", "|cff402000Rank|r", "TOPLEFT", 44, -232, 11)
 tOverlay.addText("T13", "|cffffcc00Title|r", "TOPLEFT", 30, -218, 12)
 local tButton = tOverlay.addButton("S13", -230, 48, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R14", "|cff402000Rank|r", "TOPLEFT", 172, -232, 11)
 tOverlay.addText("T14", "|cffffcc00Title|r", "TOPLEFT", 159, -218, 12)
 local tButton = tOverlay.addButton("S14", -101, 48, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R15", "|cff402000Rank|r", "TOPLEFT", 44, -268, 11)
 tOverlay.addText("T15", "|cffffcc00Title|r", "TOPLEFT", 30, -254, 12)
 local tButton = tOverlay.addButton("S15", -230, 12, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.addText("R16", "|cff402000Rank|r", "TOPLEFT", 172, -268, 11)
 tOverlay.addText("T16", "|cffffcc00Title|r", "TOPLEFT", 159, -254, 12)
 local tButton = tOverlay.addButton("S16", -101, 12, "inv_misc_questionmark", "Text")
 tButton.doRight = function(pButton)
-	PBM.SpellToMacro(PBM.spellbook.name, pButton.spell, pButton.texture)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SpellToMacro(pButton.botName, pButton.spell, pButton.texture)
 end
 tButton.doLeft = function(pButton)
-	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, PBM.spellbook.name)
+	if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+	PBM.SendChatMessage("cast " .. pButton.spell, "WHISPER", nil, pButton.botName)
 end
 
 tOverlay.boxButton("C01", -214, 262, 16, true)
@@ -1124,6 +1179,8 @@ _whisperFrame:SetScript("OnEvent", function(self, event, msg, sender)
 	if not waitFor then return end
     if (waitFor == "INVENTORY" or waitFor == "ITEM") and
         (not PBM.inventory.request or PBM.inventory.request.name ~= sender) then return end
+    if (waitFor == "SPELLBOOK" or waitFor == "SPELL") and
+        (not PBM.spellbook.request or PBM.spellbook.request.name ~= sender) then return end
 
 	-- ── Inventory ──
 	if waitFor == "INVENTORY" and PBM.isInside(msg, "Inventory") then
@@ -1158,6 +1215,7 @@ _whisperFrame:SetScript("OnEvent", function(self, event, msg, sender)
 		for key in pairs(tSpellbook.spells) do tSpellbook.spells[key] = nil end
 		tOverlay.setText("Title", PBM.doReplace(PBM.info.spellbook, "NAME", sender))
 		tSpellbook.name = sender
+        for index = 1, 16 do PBM.setSpell(index, nil, sender) end
 		tSpellbook.index = 0
 		tSpellbook.from = 1
 		tSpellbook.to = 16
@@ -1174,6 +1232,7 @@ _whisperFrame:SetScript("OnEvent", function(self, event, msg, sender)
 		tOverlay.setText("Pages", "|cffffffff" .. tSpellbook.now .. "/" .. tSpellbook.max .. "|r")
 		if tSpellbook.now == tSpellbook.max then tOverlay.buttons[">"].doHide() else tOverlay.buttons[">"].doShow() end
 		tOverlay.buttons["<"].doHide()
+		tSpellbook.loading = false
 		tSpellbook:Show()
 		PBM._waitFor[sender] = nil
 		return
@@ -1271,7 +1330,7 @@ function PBM.OpenInventoryWindow(botName)
 		PBM._waitFor[botName] = "BRIDGE_INVENTORY"
 		return
 	end
-	PBM.SendChatMessage("items", "WHISPER", nil, botName)
+	PBM.RequestLegacyInventory(botName)
 end
 
 --- Open the spellbook window for a bot.
@@ -1285,7 +1344,15 @@ function PBM.OpenSpellbookWindow(botName)
 		return
 	end
 
+    local previous = PBM.spellbook.request
+    if previous and (PBM._waitFor[previous.name] == "SPELLBOOK" or PBM._waitFor[previous.name] == "SPELL") then
+        PBM._waitFor[previous.name] = nil
+    end
+    local request = { name = botName }
+    PBM.spellbook.request = request
+    PBM.spellbook.loading = true
+    PBM.spellbook:Hide()
 	PBM._waitFor[botName] = "SPELLBOOK"
-	PBM.spellbook.name = botName
-	PBM.SendChatMessage("spells", "WHISPER", nil, botName)
+    PBM.SendChatMessage("spells", "WHISPER", nil, botName, function() return PBM.spellbook.request == request end)
+    ArmWindowTimeout(PBM.spellbook, request)
 end

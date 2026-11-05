@@ -1,6 +1,6 @@
 PBM.getSpellID = function(pInfo)
 	local tInfo = PBM.doSplit(pInfo, "|")
-	if(string.sub(tInfo[3], 1, 6) == "Hspell") then return string.sub(tInfo[3], 8) end
+	if(tInfo[3] and string.sub(tInfo[3], 1, 6) == "Hspell") then return string.sub(tInfo[3], 8) end
 	return 0
 end
 
@@ -40,6 +40,8 @@ PBM.setSpell = function(pIndex, pSpell, pName)
 		tOverlay.setText("T" .. tIndex, "|cffffcc00" .. tTitle .. "|r")
 		tOverlay.setText("R" .. tIndex, "|cff402000" .. pSpell[3] .. "|r")
 		tOverlay.buttons["S" .. tIndex].spell = pSpell[1]
+        tOverlay.buttons["S" .. tIndex].botName = pName
+        tOverlay.buttons["C" .. tIndex].botName = pName
 		tOverlay.buttons["C" .. tIndex].spell = pSpell[1]
 		tOverlay.buttons["S" .. tIndex].doShow()
 		tOverlay.buttons["C" .. tIndex].doShow()
@@ -47,7 +49,8 @@ PBM.setSpell = function(pIndex, pSpell, pName)
 		tOverlay.texts["R" .. tIndex]:Show()
 		tOverlay.buttons["C" .. tIndex]:SetChecked(PBM.spells[pName][pSpell[1]])
 		tOverlay.buttons["C" .. tIndex].doClick = function(pButton)
-			local tName = pButton.getName()
+			if PBM.spellbook.loading or pButton.botName ~= PBM.spellbook.name then return end
+			local tName = pButton.botName
 			local tAction = ""
 			PBM.spells[tName][pButton.spell] = PBM.IF(PBM.spells[tName][pButton.spell], false, true)
 			pButton:SetChecked(PBM.spells[tName][pButton.spell])
@@ -57,6 +60,8 @@ PBM.setSpell = function(pIndex, pSpell, pName)
 			PBM.ActionToTarget(PBM.IF(tAction == "", "ss -" .. pButton.spell, tAction), tName)
 		end
 	else
+        tOverlay.buttons["S" .. tIndex].botName = nil
+        tOverlay.buttons["C" .. tIndex].botName = nil
 		tOverlay.buttons["S" .. tIndex].spell = 0
 		tOverlay.buttons["C" .. tIndex].spell = 0
 		tOverlay.buttons["S" .. tIndex].doHide()

@@ -21,6 +21,7 @@ DEFAULT_CHAT_FRAME = {AddMessage=function() end}
 dofile('PBM/PBM_Constants.lua')
 dofile('PBM/PBM_Bridge.lua')
 dofile('PBM/PBM_Core.lua')
+PBM.RequestLegacyInventory = function() end
 PBM.SendToBot = function(msg, name) chat[#chat+1]={msg=msg, name=name} end
 local core
 for _, frame in ipairs(frames) do if frame.events.CHAT_MSG_ADDON then core=frame end end

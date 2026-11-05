@@ -16,8 +16,10 @@ local function widget()
     f.wowButton=f.addButton; f.movButton=f.addButton; f.boxButton=f.addButton
     f.catButton=f.addButton
     function f.addTexture() end
-    function f.addText(key,text) f.texts[key]=text end
-    function f.setText(key,text) f.texts[key]=text end
+    function f.addText(key,text) f.texts[key]=widget(); f.texts[key].text=text end
+    function f.setText(key,text) f.texts[key].text=text end
+    function f.setButton(key,_,tip) f.buttons[key].tip=tip end
+    function f:SetChecked(value) self.checked=value end
     function f.setAmount() end
     function f.setAlpha() return f end
     function f.setLevel() return f end
@@ -53,6 +55,7 @@ PBM.newFrame=function() return widget() end
 PBM.SendChatMessage=SendChatMessage
 PBM.AfterChatQueue=function(callback) callback() end
 dofile('PBM/PBM_Item.lua')
+dofile('PBM/PBM_Spell.lua')
 dofile('PBM/PBM_Windows.lua')
 local whisper, talentTimer
 for _, f in ipairs(frames) do
@@ -128,4 +131,78 @@ PBM.talent.name='A'
 PBM.auto.talent=true; PBM.timer.talent.elapsed=0; PBM.timer.talent.waited=0
 for _=1,3 do talentTimer.scripts.OnUpdate(talentTimer,1) end
 assert(PBM.talent:IsVisible() and not PBM.auto.talent and PBM.talent.frames.Tab1.buttons[1])
-print('PASS windows: inventory ownership, late replies, refresh, legacy parsing and bounded talent retries')
+local function tick(dt)
+    for _,frame in ipairs(frames) do
+        if frame.scripts.OnUpdate and frame~=talentTimer and frame.shown then frame.scripts.OnUpdate(frame,dt) end
+    end
+end
+-- A silent bridge plus silent legacy read must release the request and permit a retry.
+PBM.Bridge.state='available'
+PBM.OpenInventoryWindow('Offline')
+tick(6)
+assert(PBM._waitFor.Offline=='INVENTORY')
+tick(15)
+assert(PBM._waitFor.Offline==nil and PBM.inventory.request==nil and not PBM.inventory.loading)
+local before=#sent
+PBM.OpenInventoryWindow('Offline')
+assert(#sent==before+1)
+local retry=token()
+receive('INV_BEGIN','Offline~'..retry); receive('INV_END','Offline~'..retry)
+-- Expiry of a superseded legacy request cannot cancel the new inventory.
+PBM.Bridge.state='unavailable'
+PBM.OpenInventoryWindow('LegacyA'); tick(10)
+PBM.OpenInventoryWindow('LegacyB'); tick(5)
+assert(PBM._waitFor.LegacyB=='INVENTORY' and PBM.inventory.request.name=='LegacyB')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Inventory','LegacyB')
+local index=items.index
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Strategies: fire, dps assist','LegacyB')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Random bot text','LegacyB')
+assert(items.index==index)
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER',line,'LegacyB')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Bag, 1/20 Dur 100','LegacyB')
+assert(items.index==index+1 and not PBM.inventory.loading)
+-- Spellbook buttons remain disabled until the requested owner's complete snapshot arrives.
+function GetSpellInfo() return 'Fireball','Rank 1','icon' end
+function GetSpellLink() return '|cffffffff|Hspell:123|h[Fireball]|h|r' end
+PBM.OpenSpellbookWindow('SpellA')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Spells','SpellA')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER',GetSpellLink(),'SpellA')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Bag, 1/20 Dur 100','SpellA')
+local spell=PBM.spellbook.frames.Overlay.buttons.S01
+spell.doLeft(spell)
+assert(sent[#sent].target=='SpellA' and sent[#sent].msg=='cast 123')
+PBM.OpenSpellbookWindow('SpellB'); before=#sent
+spell.doLeft(spell)
+assert(#sent==before and not PBM.spellbook:IsVisible())
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Spells','SpellA')
+assert(PBM.spellbook.name=='SpellA')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Spells','SpellB')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Strategies: fire','SpellB')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER',GetSpellLink(),'SpellB')
+spell.doLeft(spell); assert(#sent==before+1) -- only the stats request was sent
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Bag, 1/20 Dur 100','SpellB')
+spell.doLeft(spell)
+assert(sent[#sent].target=='SpellB')
+local macroOwner
+PBM.SpellToMacro=function(owner) macroOwner=owner end
+spell.doRight(spell); assert(macroOwner=='SpellB')
+PBM.OpenSpellbookWindow('SilentSpellbook'); tick(15)
+assert(PBM._waitFor.SilentSpellbook==nil and not PBM.spellbook.loading)
+PBM.OpenSpellbookWindow('EmptySpellbook')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Spells','EmptySpellbook')
+whisper.scripts.OnEvent(whisper,'CHAT_MSG_WHISPER','Bag, 1/20 Dur 100','EmptySpellbook')
+before=#sent; spell.doLeft(spell)
+assert(#sent==before and not spell.shown)
+-- The PBM popup must not replace or use MultiBot's callback or data schema.
+StaticPopupDialogs={MULTIBOT_CONFIRM_DESTROY={OnAccept=function() error('MultiBot callback used by PBM') end}}
+OKAY='OK'; CANCEL='Cancel'
+local popupId,popupData
+function StaticPopup_Show(id,_,_,data) popupId,popupData=id,data end
+function GetItemInfo() return 'Epic','|cffa335ee|Hitem:100:0|h[Epic]|h|r',4 end
+PBM.inventory.name='LegacyB'; PBM.inventory.loading=false; PBM.inventory.action='destroy'
+PBM.addItem(items,'|cffa335ee|Hitem:100:0|h[Epic]|h|r')
+items.buttons.Epic.doLeft(items.buttons.Epic)
+assert(popupId=='PBM_CONFIRM_DESTROY' and StaticPopupDialogs.MULTIBOT_CONFIRM_DESTROY)
+StaticPopupDialogs[popupId].OnAccept(nil,popupData)
+assert(sent[#sent].target=='LegacyB' and sent[#sent].msg:find('destroy',1,true))
+print('PASS windows: inventory/spellbook ownership, timeout recovery, parsers, popup isolation and talent retries')
