@@ -9,7 +9,7 @@ function UnitName(unit)
 end
 function UnitIsPlayer() return true end
 DEFAULT_CHAT_FRAME={AddMessage=function(_,message) notices[#notices+1]=message end}
-PBM={SendChatMessage=function(message,channel,_,recipient)
+PBM={info={},SendChatMessage=function(message,channel,_,recipient)
     assert(message,'nil chat message')
     sent[#sent+1]={message=message,channel=channel,recipient=recipient}
 end}

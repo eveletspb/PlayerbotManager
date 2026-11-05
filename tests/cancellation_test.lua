@@ -95,7 +95,11 @@ local targetGear=section(tracker,'    gsBtn:SetScript("OnClick"','    -- ── 
 assert(loadstring('local SetScanActive=function() end\n'..targetGear))()
 gsBtn.scripts.OnClick()
 local before=inspectCalls
+local frameCount=#frames
 gearReply({score=0,realGs=0})
+for i=frameCount+1,#frames do
+    if frames[i].scripts.OnUpdate then frames[i].scripts.OnUpdate(frames[i],0.5) end
+end
 assert(applied==1 and inspectCalls==before)
 applied=0
 local stop=section(tracker,'    local stopInspectBtn =','    -- Row y=10:')
