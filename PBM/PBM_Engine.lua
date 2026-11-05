@@ -185,7 +185,7 @@ PBM.isRoster = function(pRoster, pName)
 end
 
 PBM.isMember = function(pName)
-	if(GetNumRaidMembers() > 5) then
+	if(GetNumRaidMembers() > 0) then
 		for i = 1, GetNumRaidMembers() do
 			if(UnitName("raid" .. i) == pName) then return true end
 		end
@@ -303,7 +303,7 @@ PBM.toClass = function(pClass)
 end
 
 PBM.toUnit = function(pName)
-	if(GetNumRaidMembers() > 5) then
+	if(GetNumRaidMembers() > 0) then
 		for i = 1, GetNumRaidMembers() do
 			if(UnitName("raid" .. i) == pName) then
 				return "raid" .. i
@@ -576,33 +576,11 @@ PBM.ActionToTargetOrGroup = function(pAction)
 		return true
 	end
 
-	if(GetNumRaidMembers() > 5) then
-		PBM.SendChatMessage(pAction, "RAID")
-		return true
-	end
-
-	if(GetNumPartyMembers() > 0) then
-		PBM.SendChatMessage(pAction, "PARTY")
-		return true
-	end
-
-	PBM.SendChatMessage(PBM.info.neither, "SAY")
-	return false
+	return PBM.ActionToGroup(pAction)
 end
 
 PBM.ActionToGroup = function(pAction)
-	if(GetNumRaidMembers() > 5) then
-		PBM.SendChatMessage(pAction, "RAID")
-		return true
-	end
-
-	if(GetNumPartyMembers() > 0) then
-		PBM.SendChatMessage(pAction, "PARTY")
-		return true
-	end
-
-	PBM.SendChatMessage(PBM.info.group, "SAY")
-	return false
+	return PBM.SendToGroup(pAction)
 end
 
 PBM.SelectToTarget = function(pParent, pIndex, pTexture, pAction, oTarget)

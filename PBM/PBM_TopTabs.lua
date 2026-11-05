@@ -243,7 +243,7 @@ end
 
 -- ── Chat helpers (passed to tab builders via ctx) ─────────────
 local function ActionToGroup(cmd)
-    if GetNumRaidMembers() > 5 then PBM.SendChatMessage(cmd, "RAID")
+    if GetNumRaidMembers() > 0 then PBM.SendChatMessage(cmd, "RAID")
     elseif GetNumPartyMembers() > 0 then PBM.SendChatMessage(cmd, "PARTY")
     else PBM.SendChatMessage(cmd, "SAY") end
 end

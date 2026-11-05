@@ -14,7 +14,9 @@ function PBM.SendToGroup(cmd)
         PBM.SendChatMessage(cmd, "PARTY")
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Not in a group.")
+        return false
     end
+    return true
 end
 
 local strategyQueues = {}

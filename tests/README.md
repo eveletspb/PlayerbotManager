@@ -7,6 +7,7 @@ luajit tests/windows_test.lua
 luajit tests/cancellation_test.lua
 luajit tests/inspect_test.lua
 luajit tests/legacy_test.lua
+luajit tests/group_test.lua
 ```
 
 These tests run the addon logic with fake WoW APIs. The windows test loads the
