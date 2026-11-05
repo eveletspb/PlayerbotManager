@@ -100,7 +100,7 @@ PBM.inventory.movButton("Move", -406, 849, 34, PBM.tips.move.inventory)
 
 PBM.inventory.wowButton("X", -126, 862, 15, 18, 13)
 .doLeft = function(pButton)
-    if PBM.inventory.request then PBM._waitFor[PBM.inventory.request.name] = nil end
+    if PBM.inventory.loading and PBM.inventory.request then PBM._waitFor[PBM.inventory.request.name] = nil end
     PBM.inventory.request = nil
     PBM.inventory.loading = false
 	PBM.inventory:Hide()
@@ -310,7 +310,7 @@ end
 
 tOverlay.wowButton("X", 16, 336, 15, 18, 11)
 .doLeft = function(pButton)
-    if PBM.spellbook.request then PBM._waitFor[PBM.spellbook.request.name] = nil end
+    if PBM.spellbook.loading and PBM.spellbook.request then PBM._waitFor[PBM.spellbook.request.name] = nil end
     PBM.spellbook.request = nil
     PBM.spellbook.loading = false
 	PBM.spellbook:Hide()
