@@ -7,8 +7,6 @@ PBM.State = PBM.State or {}
 PBM.State.allFrames        = PBM.State.allFrames        or {}
 PBM.State.strategyPending  = PBM.State.strategyPending  or {}  -- [botName] = {frame, step}
 PBM.State.lastQueriedMenu  = PBM.State.lastQueriedMenu  or {}  -- [botName] = menuFrame (most-recently-opened)
-PBM.State.lastStratType    = PBM.State.lastStratType    or {}  -- [botName] = "co"|"nc" (last command type sent)
-PBM.State.joinPending      = PBM.State.joinPending      or {}  -- [botName] = {step=1..4} join-time query chain
 PBM.State.pickingPending   = PBM.State.pickingPending   or {}  -- [botName] = true while waiting for "Picking X" reply
 
 local function CoreTimerAfter(delay, func)
@@ -80,43 +78,9 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
         if PBM.HandleBridgeMessage and PBM.HandleBridgeMessage(arg1, arg2) then return end
         local msg, sender = arg1, arg2
 
-        -- Bot join greeting → start sequential query chain (co? → nc? → ss? → who)
         if msg == "Hello!" or msg == "你好" then
-            if PBM.BridgeIsAvailable and PBM.BridgeIsAvailable() and PBM.QueryBotStrategies then
-                PBM.QueryBotStrategies(sender, nil, false)
-                return
-            end
-            PBM.State.joinPending[sender] = { step = 1 }
-            PBM.SendToBot("co ?", sender)
+            PBM.QueryBotStrategies(sender, nil, false)
             return
-        end
-
-        -- Join-flow state machine: co? → wait → nc? → done
-        local join = PBM.State.joinPending[sender]
-        if join then
-            if join.step == 1 and msg:match("^Strategies:") then
-                local rest = msg:sub(12)
-                local coSet = {}
-                for token in rest:gmatch("[^,]+") do
-                    local trimmed = token:match("^%s*(.-)%s*$")
-                    if trimmed ~= "" then coSet[trimmed:lower()] = true end
-                end
-                join.coSet = coSet
-                PBM.SendToBot("nc ?", sender)
-                join.step = 2
-                return
-            elseif join.step == 2 and msg:match("^Strategies:") then
-                local rest = msg:sub(12)
-                local ncSet = {}
-                for token in rest:gmatch("[^,]+") do
-                    local trimmed = token:match("^%s*(.-)%s*$")
-                    if trimmed ~= "" then ncSet[trimmed:lower()] = true end
-                end
-                local coSet = join.coSet or {}
-                PBM.State.joinPending[sender] = nil
-                if PBM.ApplyBotNotes then PBM.ApplyBotNotes(sender, coSet, ncSet) end
-                return
-            end
         end
 
         -- Extended click-query chain: step 3 — stats response contains "Bag"
@@ -195,62 +159,8 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
             if trimmed ~= "" then activeSet[trimmed:lower()] = true end
         end
 
-        -- Single unified path: always route through lastQueriedMenu + lastStratType.
-        -- Both solicited (menu open) and unsolicited (toggle click) replies go here.
-        local menuFrame = PBM.State.lastQueriedMenu[sender]
-        if not menuFrame or not menuFrame:IsShown() or menuFrame.botName ~= sender then
-            -- Fire notes update for any completed two-step query that finished without the menu.
-            local ep = PBM.State.strategyPending[sender]
-            if ep and ep.step == 2 and PBM.ApplyBotNotes then
-                -- CO-first flow: NC reply arrived; apply notes.
-                PBM.ApplyBotNotes(sender, ep.coSet or {}, activeSet)
-            elseif ep and ep.step == 1 and ep.ncSet and PBM.ApplyBotNotes then
-                -- NC-first flow: CO reply arrived; apply notes.
-                PBM.ApplyBotNotes(sender, activeSet, ep.ncSet)
-            end
-            PBM.State.strategyPending[sender] = nil
-            return
-        end
+        if PBM.HandleLegacyStrategies then PBM.HandleLegacyStrategies(sender, activeSet) end
 
-        local stratType = PBM.State.lastStratType[sender] or "co"
-        PBM.UpdateStrategyToggles(menuFrame, stratType, activeSet)
-
-        -- Advance the solicited query chain if active (co reply → send nc?, etc.)
-        local pending = PBM.State.strategyPending[sender]
-        if pending then
-            if pending.step == 1 then
-                if pending.ncSet then
-                    -- NC-first flow: CO just arrived; apply notes immediately.
-                    if PBM.ApplyBotNotes then
-                        PBM.ApplyBotNotes(sender, activeSet, pending.ncSet)
-                    end
-                    PBM.State.strategyPending[sender] = nil
-                else
-                    -- CO-first flow: CO received; save coSet, send NC query.
-                    pending.coSet = activeSet
-                    pending.step = 2
-                    PBM.SendToBot("nc ?", sender)
-                end
-            elseif pending.step == 2 then
-                if PBM.ApplyBotNotes then
-                    PBM.ApplyBotNotes(sender, pending.coSet or {}, activeSet)
-                end
-                if pending.extended then
-                    PBM.SendToBot("stats", sender)
-                    pending.step = 3
-                else
-                    PBM.State.strategyPending[sender] = nil
-                end
-            end
-        elseif stratType == "co" then
-            -- Unsolicited CO toggle — follow up with nc? so NC strats stay current.
-            PBM.State.strategyPending[sender] = { step = 2, extended = false, coSet = activeSet }
-            PBM.SendToBot("nc ?", sender)
-        elseif stratType == "nc" then
-            -- Unsolicited NC toggle — follow up with co? to complete the picture.
-            PBM.State.strategyPending[sender] = { step = 1, extended = false, ncSet = activeSet }
-            PBM.SendToBot("co ?", sender)
-        end
     end
 end)
 
@@ -587,7 +497,21 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
     }
     PBM.State.strategyPending[botName] = query
 
-    if PBM.BridgeGetBotState and PBM.BridgeGetBotState(botName, function(name, coSet, ncSet, reason)
+    local OnState
+    local function QueryLegacy()
+        PBM.SendToBot("co ?", botName, function(coSet)
+            if PBM.State.strategyPending[botName] ~= query then return end
+            if not coSet then PBM.State.strategyPending[botName] = nil; return end
+            PBM.SendToBot("nc ?", botName, function(ncSet)
+                if not ncSet then
+                    if PBM.State.strategyPending[botName] == query then PBM.State.strategyPending[botName] = nil end
+                    return
+                end
+                OnState(botName, coSet, ncSet)
+            end)
+        end)
+    end
+    OnState = function(name, coSet, ncSet, reason)
         local pending = PBM.State.strategyPending[name]
         if pending ~= query then return end
         if reason then
@@ -595,8 +519,7 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
                 -- A bridge that advertised the endpoint but did not answer is
                 -- treated as temporarily unavailable for this read. The
                 -- legacy query is safe here because no write was performed.
-                pending.step = 1
-                PBM.SendToBot("co ?", name)
+                QueryLegacy()
             else
                 PBM.State.strategyPending[name] = nil
             end
@@ -648,13 +571,9 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
         else
             PBM.State.strategyPending[name] = nil
         end
-    end) then
-        return
     end
-
-    -- Send co? only; nc? is sent sequentially after the co reply arrives.
-    -- This guarantees lastStratType is always correct when each reply lands.
-    PBM.SendToBot("co ?", botName)
+    if PBM.BridgeGetBotState and PBM.BridgeGetBotState(botName, OnState) then return end
+    QueryLegacy()
 end
 
 -- ── Slash Commands ───────────────────────────────────────────

@@ -17,18 +17,49 @@ function PBM.SendToGroup(cmd)
     end
 end
 
+local strategyQueues = {}
+local function SendNextStrategy(name)
+    local queue = strategyQueues[name]
+    if not queue or queue.active then return end
+    local request = queue[1]
+    if not request then strategyQueues[name] = nil; return end
+    queue.active = request
+    PBM.SendChatMessage(request.cmd, "WHISPER", nil, name)
+    PBM.AfterChatQueue(function()
+        PBM.TimerAfter(5, function()
+            if strategyQueues[name] ~= queue or queue.active ~= request then return end
+            -- shortcut: legacy has no reply tokens; abort the queue on timeout instead of misrouting a late reply.
+            strategyQueues[name] = nil
+            for _, pending in ipairs(queue) do
+                if pending.callback then pending.callback(nil, "TIMEOUT") end
+            end
+            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Strategy request timed out for " .. name .. ". Try again.")
+        end)
+    end)
+end
+
+function PBM.HandleLegacyStrategies(name, activeSet)
+    local queue = strategyQueues[name]
+    if not queue or not queue.active then return false end
+    local request = table.remove(queue, 1)
+    queue.active = nil
+    if request.callback then
+        request.callback(activeSet)
+    else
+        local menu = PBM.State.lastQueriedMenu[name]
+        if not menu or menu.botName ~= name or not menu:IsShown() then menu = nil end
+        PBM.QueryBotStrategies(name, menu, false)
+    end
+    SendNextStrategy(name)
+    return true
+end
+
 -- Whisper a command to a specific bot by name.
-function PBM.SendToBot(cmd, name)
+function PBM.SendToBot(cmd, name, onStrategies)
     if not name or name == "" then
         DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r No bot name specified.")
         return
     end
-    -- Track CO/NC type so unsolicited Strategies replies route correctly
-    local _stype = cmd:match("^(co)%s") or cmd:match("^(nc)%s")
-    if _stype then
-        PBM.State.lastStratType[name] = _stype
-    end
-
     -- The bridge has a structured strategy endpoint. Keep legacy queries
     -- and unsupported commands on the old whisper path until their parser
     -- is migrated; never duplicate a bridge write through chat fallback.
@@ -51,6 +82,15 @@ function PBM.SendToBot(cmd, name)
                 PBM.QueryBotStrategies(name, menuFrame, false)
             end
         end) then
+            return
+        end
+    end
+    if cmd:match("^co%s") or cmd:match("^nc%s") then
+        if cmd:find("?", 1, true) then
+            local queue = strategyQueues[name] or {}
+            strategyQueues[name] = queue
+            queue[#queue + 1] = { cmd = cmd, callback = onStrategies }
+            SendNextStrategy(name)
             return
         end
     end
