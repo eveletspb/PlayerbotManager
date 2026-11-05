@@ -401,15 +401,18 @@ function PBM.BridgeRequestGear(botName, callback, onTimeout)
 
     local token = NextToken()
     local gear = { ilvl = {}, ilvlLink = {}, score = 0, realGs = 0 }
+    local hasSummary = false
     for i = 1, PBM.GEAR_SLOTS do
         gear.ilvl[i] = 0
         gear.ilvlLink[i] = ""
     end
 
     local function OnFrame(opcode, fields)
+        if opcode ~= "ERR" and UrlDecode(fields[1] or "") ~= botName then return end
         if opcode == "GEAR_SUMMARY" then
-            gear.score = tonumber(fields[3]) or 0
-            gear.realGs = tonumber(fields[4]) or 0
+            gear.score = tonumber(fields[3])
+            gear.realGs = tonumber(fields[4])
+            hasSummary = gear.score ~= nil and gear.realGs ~= nil and gear.score >= 0 and gear.realGs >= 0
         elseif opcode == "GEAR_ITEM" then
             local slot = GEAR_SLOT_INDEX[(tonumber(fields[3]) or -1) + 1]
             if slot then
@@ -420,7 +423,9 @@ function PBM.BridgeRequestGear(botName, callback, onTimeout)
                 end
             end
         elseif opcode == "GEAR_END" then
-            if callback then callback(gear) end
+            if callback then
+                if hasSummary then callback(gear) else callback(nil, "INVALID_GEAR_SUMMARY") end
+            end
         elseif opcode == "GEAR_ERROR" or opcode == "ERR" then
             if callback then callback(nil, fields[3] or fields[4] or "BRIDGE_ERROR") end
         end
@@ -518,8 +523,8 @@ function PBM.ApplyBridgeGear(botName, gear)
     CalculateBridgeGearScore(row, gear)
     row.ilvl = gear.ilvl or row.ilvl or {}
     row.ilvlLink = gear.ilvlLink or row.ilvlLink or {}
-    if (gear.score or 0) > 0 then row.gs = gear.score end
-    if (gear.realGs or 0) > 0 then row.realGs = gear.realGs end
+    row.gs = gear.score
+    row.realGs = gear.realGs
 
     if row.name and LichborneTrackerDB.raidRosters then
         for _, roster in pairs(LichborneTrackerDB.raidRosters) do

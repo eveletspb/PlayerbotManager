@@ -87,6 +87,17 @@ PBM.BridgeRequestGear=function(_,reply,timeout) gearReply,gearTimeout=reply,time
 PBM.BridgeRequestDetail=function(_,reply,timeout) specReply,specTimeout=reply,timeout; return true end
 LichborneTrackerDB.rows={{name='Owner',cls='Mage'},{name='Bot',cls='Mage'}}
 local tracker=read('PBM/PBM_TrackerCore.lua')
+-- A successful zero-score response must not trigger the single-target legacy fallback.
+function UnitClass() return 'Mage','MAGE' end
+PBM.CLASS_TOKEN_MAP={MAGE='Mage'}
+gsBtn=CreateFrame()
+local targetGear=section(tracker,'    gsBtn:SetScript("OnClick"','    -- ── Update Target Spec')
+assert(loadstring('local SetScanActive=function() end\n'..targetGear))()
+gsBtn.scripts.OnClick()
+local before=inspectCalls
+gearReply({score=0,realGs=0})
+assert(applied==1 and inspectCalls==before)
+applied=0
 local stop=section(tracker,'    local stopInspectBtn =','    -- Row y=10:')
 local scan=section(tracker,'    local maintBtn =','    local loginBtn')
 local factory=assert(loadstring('return function() local activeInspectFrame\n'..
@@ -103,7 +114,7 @@ local function beginGear()
 end
 local gearFrame=beginGear()
 stopScan.scripts.OnClick()
-local before=inspectCalls
+before=inspectCalls
 gearReply({realGs=4000}); gearTimeout()
 assert(applied==0 and inspectCalls==before and PBM.State.LichborneInspectTarget==nil)
 -- An old scan cannot modify the replacement scan either.
@@ -114,8 +125,9 @@ oldReply({realGs=4000}); oldTimeout()
 assert(applied==0 and inspectCalls==before)
 -- Advance a current scan into the specialization phase, then stop its pending read.
 gearFrame=beginGear()
-gearReply({realGs=4000})
-assert(applied==1)
+before=inspectCalls
+gearReply({score=0,realGs=0})
+assert(applied==1 and inspectCalls==before)
 gearFrame.scripts.OnUpdate(gearFrame,0.1)
 local specFrame=frames[#frames]
 specFrame.scripts.OnUpdate(specFrame,0.1)

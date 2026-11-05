@@ -51,12 +51,43 @@ assert(PBM.BridgeIsAvailable())
 local gear
 local _, token = PBM.BridgeRequestGear('Bot',function(value) gear=value end)
 receive('GEAR_BEGIN','Bot~'..token)
+receive('GEAR_SUMMARY','Bot~'..token..'~200~4000')
 for slot=0,18 do
     if slot ~= 3 then receive('GEAR_ITEM','Bot~'..token..'~'..slot..'~'..(1000+slot)..'~200~4') end
 end
 receive('GEAR_END','Bot~'..token)
 local expected={0,1,2,14,4,8,9,5,6,7,10,11,12,13,15,16,17}
 for column, slot in ipairs(expected) do assert(gear.ilvlLink[column]:match('item:(%d+)') == tostring(1000+slot)) end
+-- A complete empty snapshot is authoritative and must clear previous scores everywhere.
+local row={name='Bot',cls='Mage',gs=200,realGs=4000}
+local rosterSlot={name='Bot',gs=200,realGs=4000}
+LichborneTrackerDB={rows={row},raidRosters={raid={rosterSlot}}}
+PBM.FindTrackedRowIndexByName=function() return 1 end
+local applied,reason
+local function applyGear(value,err)
+    reason=err
+    applied=PBM.ApplyBridgeGear('Bot',value)
+end
+_,token=PBM.BridgeRequestGear('Bot',applyGear)
+receive('GEAR_BEGIN','Bot~'..token)
+receive('GEAR_SUMMARY','Bot~'..token..'~0~0')
+receive('GEAR_END','Bot~'..token)
+assert(applied and row.gs==0 and row.realGs==0 and rosterSlot.gs==0 and rosterSlot.realGs==0)
+for slot=1,PBM.GEAR_SLOTS do assert(row.ilvl[slot]==0 and row.ilvlLink[slot]=='') end
+-- Incomplete/malformed/error responses must not erase the previous valid snapshot.
+row.gs=200; row.realGs=4000
+for _,summary in ipairs({'', '~invalid~0', '~-1~0'}) do
+    _,token=PBM.BridgeRequestGear('Bot',applyGear)
+    receive('GEAR_BEGIN','Bot~'..token)
+    if summary~='' then receive('GEAR_SUMMARY','Bot~'..token..summary) end
+    receive('GEAR_END','Bot~'..token)
+    assert(not applied and reason=='INVALID_GEAR_SUMMARY' and row.gs==200 and row.realGs==4000)
+end
+_,token=PBM.BridgeRequestGear('Bot',applyGear)
+receive('GEAR_BEGIN','Bot~'..token)
+receive('GEAR_ERROR','Bot~'..token..'~FORBIDDEN')
+receive('GEAR_END','Bot~'..token)
+assert(not applied and reason=='FORBIDDEN' and row.gs==200 and row.realGs==4000)
 
 for _, request in ipairs({'DETAIL','STATS'}) do
     local name='unexpected'
