@@ -397,11 +397,13 @@ local GEAR_SLOT_INDEX = {
 }
 
 function PBM.BridgeRequestGear(botName, callback, onTimeout)
-    if not PBM.BridgeHasCapability("GEAR_INSPECT_V1") then return false end
+    if not PBM.BridgeHasCapability("GEAR_INSPECT_V1") or
+        not PBM.BridgeHasCapability("GEAR_ITEM_LINK_V1") then return false end
 
     local token = NextToken()
     local gear = { ilvl = {}, ilvlLink = {}, score = 0, realGs = 0 }
     local hasSummary = false
+    local expectedLinks, receivedLinks = {}, {}
     for i = 1, PBM.GEAR_SLOTS do
         gear.ilvl[i] = 0
         gear.ilvlLink[i] = ""
@@ -419,10 +421,26 @@ function PBM.BridgeRequestGear(botName, callback, onTimeout)
                 local itemId = tonumber(fields[4]) or 0
                 gear.ilvl[slot] = tonumber(fields[5]) or 0
                 if itemId > 0 then
+                    expectedLinks[slot] = itemId
                     gear.ilvlLink[slot] = "item:" .. tostring(itemId) .. ":0:0:0:0:0:0:0"
                 end
             end
+        elseif opcode == "GEAR_LINK" then
+            local slot = GEAR_SLOT_INDEX[(tonumber(fields[3]) or -1) + 1]
+            local link = UrlDecode(fields[4] or "")
+            if slot and expectedLinks[slot] == tonumber(link:match("^item:(%d+):")) then
+                gear.ilvlLink[slot] = link
+                receivedLinks[slot] = true
+            end
         elseif opcode == "GEAR_END" then
+            if PBM.BridgeHasCapability("GEAR_ITEM_LINK_V1") then
+                for slot in pairs(expectedLinks) do
+                    if not receivedLinks[slot] then
+                        if callback then callback(nil, "MISSING_GEAR_LINK") end
+                        return
+                    end
+                end
+            end
             if callback then
                 if hasSummary then callback(gear) else callback(nil, "INVALID_GEAR_SUMMARY") end
             end
@@ -617,7 +635,7 @@ function PBM.HandleBridgeMessage(message, sender)
     end
 
     if opcode == "GEAR_BEGIN" or opcode == "GEAR_SUMMARY" or opcode == "GEAR_ITEM" or
-        opcode == "GEAR_ERROR" or opcode == "GEAR_END" then
+        opcode == "GEAR_LINK" or opcode == "GEAR_ERROR" or opcode == "GEAR_END" then
         local fields = SplitFields(payload)
         local token = fields[2]
         local request = PBM.Bridge.pending[token]

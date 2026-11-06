@@ -44,7 +44,7 @@ receive('CAPS','INVENTORY_V1','Other')
 receive('CAPS_END',nil,'Other')
 assert(not PBM.BridgeIsAvailable())
 receive('HELLO_ACK','1~Bridge')
-receive('CAPS','GEAR_INSPECT_V1,STATE_FRAMING_V1,DETAIL_V1,STATS_V1,INVENTORY_V1,TALENT_SPEC_APPLY_V1')
+receive('CAPS','GEAR_ITEM_LINK_V1,GEAR_INSPECT_V1,STATE_FRAMING_V1,DETAIL_V1,STATS_V1,INVENTORY_V1,TALENT_SPEC_APPLY_V1')
 receive('CAPS_END')
 assert(PBM.BridgeIsAvailable())
 
@@ -53,7 +53,10 @@ local _, token = PBM.BridgeRequestGear('Bot',function(value) gear=value end)
 receive('GEAR_BEGIN','Bot~'..token)
 receive('GEAR_SUMMARY','Bot~'..token..'~200~4000')
 for slot=0,18 do
-    if slot ~= 3 then receive('GEAR_ITEM','Bot~'..token..'~'..slot..'~'..(1000+slot)..'~200~4') end
+    if slot ~= 3 then
+        receive('GEAR_ITEM','Bot~'..token..'~'..slot..'~'..(1000+slot)..'~200~4')
+        receive('GEAR_LINK','Bot~'..token..'~'..slot..'~item:'..(1000+slot)..':0:0:0:0:0:0:0')
+    end
 end
 receive('GEAR_END','Bot~'..token)
 local expected={0,1,2,14,4,8,9,5,6,7,10,11,12,13,15,16,17}
@@ -173,4 +176,21 @@ for _, frame in ipairs(frames) do if frame.scripts.OnUpdate and frame.shown then
 assert(fired==1)
 for _, frame in ipairs(frames) do if frame.scripts.OnUpdate and frame.shown then frame.scripts.OnUpdate(frame,0.1) end end
 assert(fired==2 and #frames==frameCount)
+-- Bridge links must keep instance-specific enchants, gems and random properties.
+local link = 'item:123:3789:40111:40112:40113:0:-42:12345:80'
+local receivedGear, gearError
+local _, linkToken = PBM.BridgeRequestGear('Bot', function(value, err) receivedGear, gearError = value, err end)
+receive('GEAR_BEGIN','Bot~'..linkToken)
+receive('GEAR_SUMMARY','Bot~'..linkToken..'~200~4000')
+receive('GEAR_ITEM','Bot~'..linkToken..'~15~123~200~4')
+receive('GEAR_LINK','Bot~'..linkToken..'~15~'..link)
+receive('GEAR_END','Bot~'..linkToken)
+assert(receivedGear.ilvlLink[15] == link and not gearError)
+_, linkToken = PBM.BridgeRequestGear('Bot', function(value, err) receivedGear, gearError = value, err end)
+receive('GEAR_SUMMARY','Bot~'..linkToken..'~200~4000')
+receive('GEAR_ITEM','Bot~'..linkToken..'~15~123~200~4')
+receive('GEAR_END','Bot~'..linkToken)
+assert(not receivedGear and gearError == 'MISSING_GEAR_LINK')
+PBM.Bridge.capabilities.GEAR_ITEM_LINK_V1 = nil
+assert(not PBM.BridgeRequestGear('Bot', function() error('Old bridge must use native inspect') end))
 print('PASS bridge: sender, slots, UTF-8, empty results, query lifecycle, stale menus and timer reuse')

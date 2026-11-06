@@ -29,6 +29,11 @@ and operations without a matching structured endpoint intentionally remain on
 the fallback path until their response parsers and UI state transitions are
 migrated.
 
+Gear scans require both `GEAR_INSPECT_V1` and `GEAR_ITEM_LINK_V1`. The bridge
+preserves each item's enchants, gems and random properties. Missing links or an
+older bridge use native inspect instead of overwriting full links with template-only
+item strings.
+
 ## Recent Changes — v1.4 (July 3, 2026)
 
 ### Reorder Rows
