@@ -21,6 +21,7 @@ dofile('PBM/PBM_Database.lua')
 dofile('PBM/PBM_Bridge.lua')
 dofile('PBM/PBM_Core.lua')
 PBM.SendToBot=function() end
+PBM.AfterChatQueue=function(callback) callback() end
 PBM.RefreshRows=function() end
 local file=assert(io.open('PBM/PBM_CharSheet.lua')); local sheet=file:read('*a'); file:close()
 local first=assert(sheet:find('        mb:SetScript("OnClick", function()',1,true))
@@ -56,6 +57,7 @@ assert(row.spec=='Fire' and other.spec=='Arcane' and icon.texture=='old-icon')
 -- The acknowledgement resolves the character by name after a row reorder.
 templateClick(); token=listReply()
 LichborneTrackerDB.rows={other,row}
+card.sourceRow.dbIndex=1
 local queried
 local query=PBM.QueryBotStrategies
 PBM.QueryBotStrategies=function(name) queried=name end
@@ -83,8 +85,20 @@ end
 assert(row.spec=='Fire')
 local core
 for _,frame in ipairs(frames) do if frame.events.CHAT_MSG_WHISPER then core=frame end end
+core.scripts.OnEvent(core,'CHAT_MSG_WHISPER','Picking fire','Bot')
+assert(row.spec=='Fire' and PBM.State.pickingPending.Bot)
 core.scripts.OnEvent(core,'CHAT_MSG_WHISPER','Picking frost','Bot')
 assert(row.spec=='Frost' and other.spec=='Arcane' and PBM.State.pickingPending.Bot==nil)
+-- A silent legacy failure releases the pending template without changing saved data.
+row.spec='Fire'
+PBM.ApplyTalentTemplate('Bot','frost','Frost')
+for _,frame in ipairs(frames) do
+    if frame.shown and frame.scripts.OnUpdate then frame.scripts.OnUpdate(frame,0.4) end
+end
+for _,frame in ipairs(frames) do
+    if frame.shown and frame.scripts.OnUpdate then frame.scripts.OnUpdate(frame,15) end
+end
+assert(row.spec=='Fire' and PBM.State.pickingPending.Bot==nil)
 PBM.QueryBotStrategies=query
 -- Run the actual Food click and shared NC reply handler against a rejected bridge write.
 dofile('PBM/PBM_Commands.lua')

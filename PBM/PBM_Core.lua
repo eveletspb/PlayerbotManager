@@ -7,7 +7,7 @@ PBM.State = PBM.State or {}
 PBM.State.allFrames        = PBM.State.allFrames        or {}
 PBM.State.strategyPending  = PBM.State.strategyPending  or {}  -- [botName] = {frame, step}
 PBM.State.lastQueriedMenu  = PBM.State.lastQueriedMenu  or {}  -- [botName] = menuFrame (most-recently-opened)
-PBM.State.pickingPending   = PBM.State.pickingPending   or {}  -- [botName] = {spec} while waiting for "Picking X" reply
+PBM.State.pickingPending   = PBM.State.pickingPending   or {}  -- [botName] = {name,spec} while waiting for "Picking X" reply
 
 local function CoreTimerAfter(delay, func)
     if C_Timer and C_Timer.After then
@@ -91,6 +91,7 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
         local msg, sender = arg1, arg2
 
         if msg == "Hello!" or msg == "你好" then
+            if PBM.ResetLegacyStrategies then PBM.ResetLegacyStrategies(sender) end
             PBM.QueryBotStrategies(sender, nil, false)
             return
         end
@@ -137,7 +138,8 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
 
         -- Talent spec picked: bot replies "Picking <spec>"
         -- Clear Strategy List and repopulate via full QueryBotStrategies chain
-        if PBM.State.pickingPending[sender] and msg:find("^Picking ") then
+        local picking = PBM.State.pickingPending[sender]
+        if picking and msg == "Picking " .. picking.name then
             PBM.OnBridgeTalentSpecApplied(sender)
             return
         end

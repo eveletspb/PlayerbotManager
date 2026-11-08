@@ -19,3 +19,6 @@ legacy fallback, but do not establish in-game behavior or FPS.
 Regressions include inspect/talent exclusion and lock recovery, cross-window
 request ownership, valid zero-score versus invalid bridge gear snapshots,
 single/group scan fallback, and command routing in small raids, parties and solo.
+Card tests cover confirmed talent changes by character name, rejected and timed-out
+templates, and strategy icons after server reconciliation. Legacy tests cover
+per-stage deadlines, late replies after retry, and recovery through bot login or bridge.

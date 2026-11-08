@@ -296,10 +296,19 @@ end
 
 function PBM.ApplyTalentTemplate(botName, specName, wowSpec)
     local function UseLegacy()
+        local pending = { name = specName, spec = wowSpec }
+        PBM.State.pickingPending[botName] = pending
         PBM.SendToBot("talents switch 1", botName)
         BridgeTimerAfter(0.4, function()
+            if PBM.State.pickingPending[botName] ~= pending then return end
             PBM.SendToBot("talents spec " .. specName, botName)
-            PBM.State.pickingPending[botName] = { spec = wowSpec }
+            PBM.AfterChatQueue(function()
+                BridgeTimerAfter(15, function()
+                    if PBM.State.pickingPending[botName] ~= pending then return end
+                    PBM.State.pickingPending[botName] = nil
+                    DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Talent spec timed out for " .. botName .. ". Try again.")
+                end)
+            end)
         end)
     end
 

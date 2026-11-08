@@ -30,18 +30,27 @@ local function SendNextStrategy(name)
     PBM.AfterChatQueue(function()
         PBM.TimerAfter(5, function()
             if strategyQueues[name] ~= queue or queue.active ~= request then return end
-            -- shortcut: legacy has no reply tokens; abort the queue on timeout instead of misrouting a late reply.
-            strategyQueues[name] = nil
+            -- Legacy replies have no tokens; keep the channel blocked until its old reply is drained.
+            strategyQueues[name] = { timedOut = true }
             for _, pending in ipairs(queue) do
                 if pending.callback then pending.callback(nil, "TIMEOUT") end
             end
-            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Strategy request timed out for " .. name .. ". Try again.")
+            DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Strategy request timed out for " .. name .. ". Waiting for its late reply or next bot login before retrying.")
         end)
     end)
 end
 
+function PBM.ResetLegacyStrategies(name)
+    local queue = strategyQueues[name]
+    if queue and queue.timedOut then strategyQueues[name] = nil end
+end
+
 function PBM.HandleLegacyStrategies(name, activeSet)
     local queue = strategyQueues[name]
+    if queue and queue.timedOut then
+        strategyQueues[name] = nil
+        return true
+    end
     if not queue or not queue.active then return false end
     local request = table.remove(queue, 1)
     queue.active = nil
@@ -90,6 +99,11 @@ function PBM.SendToBot(cmd, name, onStrategies)
     if cmd:match("^co%s") or cmd:match("^nc%s") then
         if cmd:find("?", 1, true) then
             local queue = strategyQueues[name] or {}
+            if queue.timedOut then
+                if onStrategies then onStrategies(nil, "UNSYNCHRONIZED") end
+                DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Still waiting for an old strategy reply from " .. name .. ". Reconnect the bot if it does not reply.")
+                return
+            end
             strategyQueues[name] = queue
             queue[#queue + 1] = { cmd = cmd, callback = onStrategies }
             SendNextStrategy(name)

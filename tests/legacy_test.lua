@@ -123,4 +123,38 @@ assert(PBM.State.strategyPending.SlowSteps.step==4)
 reply('Bot (80 lvl)','SlowSteps'); command('ss ?')
 reply('Ignored spell list: [Fireball]','SlowSteps')
 assert(not PBM.State.strategyPending.SlowSteps)
+-- Retrying before the expired request's late reply must not shift CO into NC.
+PBM.QueryBotStrategies('Late',nil,false)
+command('co ?'); tick(6)
+assert(not PBM.State.strategyPending.Late)
+before=#sent
+local noteCount=#notes
+PBM.QueryBotStrategies('Late',nil,false); tick(1)
+assert(#sent==before and not PBM.State.strategyPending.Late)
+reply('Strategies: stale-co','Late')
+assert(#notes==noteCount)
+PBM.QueryBotStrategies('Late',nil,false)
+command('co ?'); reply('Strategies: fresh-co','Late')
+command('nc ?'); reply('Strategies: fresh-nc','Late')
+assert(notes[#notes].co['fresh-co'] and notes[#notes].nc['fresh-nc'] and not notes[#notes].co['stale-co'])
+-- A bot that never answered can recover when its new login greeting arrives.
+PBM.QueryBotStrategies('Relog',nil,false)
+command('co ?'); tick(6)
+reply('Hello!','Relog')
+command('co ?'); reply('Strategies: tank','Relog')
+command('nc ?'); reply('Strategies: food','Relog')
+assert(notes[#notes].name=='Relog' and notes[#notes].co.tank)
+-- A blocked legacy channel does not block the correlated bridge transport.
+PBM.QueryBotStrategies('BridgeRecovery',nil,false)
+command('co ?'); tick(6)
+local wire
+function SendAddonMessage(_,payload) wire=payload end
+PBM.Bridge.state='available'
+PBM.QueryBotStrategies('BridgeRecovery',nil,false)
+local token=wire:match('([^~]+)$')
+local function bridgeReply(op,payload) PBM.HandleBridgeAddonMessage('MBOT',op..'~'..payload,'Owner') end
+bridgeReply('STATE_BEGIN',token..'~BridgeRecovery~1~0')
+bridgeReply('STATE_ITEM',token..'~BridgeRecovery~C~1~fire')
+bridgeReply('STATE_END',token..'~BridgeRecovery~1~0')
+assert(notes[#notes].name=='BridgeRecovery' and notes[#notes].co.fire and not PBM.State.strategyPending.BridgeRecovery)
 print('PASS legacy: background/extended queries, rapid toggles, superseded requests and per-stage timeout recovery')

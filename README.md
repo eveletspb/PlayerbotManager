@@ -18,6 +18,10 @@ required capability, Playerbot Manager keeps using the existing
 bridge timeout. A write that was already sent through the bridge is not
 replayed through chat, preventing duplicate mutations.
 
+Legacy strategy replies have no request IDs. After a timeout, PBM waits for the
+late reply or the bot's next login greeting before accepting another legacy
+CO/NC request for that bot. Requests through the bridge remain available.
+
 Talent build application uses `TALENT_APPLY_V1`; named talent templates use
 `TALENT_SPEC_LIST` plus `TALENT_SPEC_APPLY_V1` when available. Inventory reads
 use framed `INVENTORY_V1` snapshots. Inventory item actions still use the
