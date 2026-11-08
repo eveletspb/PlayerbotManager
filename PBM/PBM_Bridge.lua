@@ -294,12 +294,12 @@ function PBM.BridgeApplyTalentSpec(botName, slot, specIndex, callback)
     end)
 end
 
-function PBM.ApplyTalentTemplate(botName, specName)
+function PBM.ApplyTalentTemplate(botName, specName, wowSpec)
     local function UseLegacy()
         PBM.SendToBot("talents switch 1", botName)
         BridgeTimerAfter(0.4, function()
             PBM.SendToBot("talents spec " .. specName, botName)
-            PBM.State.pickingPending[botName] = true
+            PBM.State.pickingPending[botName] = { spec = wowSpec }
         end)
     end
 
@@ -326,7 +326,7 @@ function PBM.ApplyTalentTemplate(botName, specName)
 
         PBM.BridgeApplyTalentSpec(botName, 1, selected.index, function(ok, reason)
             if ok then
-                if PBM.OnBridgeTalentSpecApplied then PBM.OnBridgeTalentSpecApplied(botName) end
+                if PBM.OnBridgeTalentSpecApplied then PBM.OnBridgeTalentSpecApplied(botName, wowSpec) end
             elseif DEFAULT_CHAT_FRAME then
                 DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Talent spec failed: " .. tostring(reason))
             end

@@ -216,24 +216,8 @@ function PBM.CreateCharSheet(config)
             local bot = menu.botName or ""
             if bot ~= "" then
                 PBM.SendToBot("stopcasting", bot)
-                if PBM.ApplyTalentTemplate then
-                    PBM.ApplyTalentTemplate(bot, def.spec)
-                else
-                    PBM.SendToBot("talents switch 1", bot)
-                    PBM_TimerAfter(0.4, function()
-                        PBM.SendToBot("talents spec " .. def.spec, bot)
-                        PBM.State.pickingPending[bot] = true
-                    end)
-                end
+                PBM.ApplyTalentTemplate(bot, def.spec, def.wowSpec)
             end
-            specTex:SetTexture(def.icon)
-            local rd = menu.sourceRow
-                and menu.sourceRow.dbIndex
-                and LichborneTrackerDB.rows[menu.sourceRow.dbIndex]
-            if rd then rd.spec = def.wowSpec end
-            if PBM.RefreshRows then PBM.RefreshRows() end
-            if PBM.State.overviewRowFrames and #PBM.State.overviewRowFrames > 0 then PBM.RefreshOverviewRows() end
-            if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end
             talentsMenu:Hide()
         end)
     end

@@ -7,7 +7,7 @@ PBM.State = PBM.State or {}
 PBM.State.allFrames        = PBM.State.allFrames        or {}
 PBM.State.strategyPending  = PBM.State.strategyPending  or {}  -- [botName] = {frame, step}
 PBM.State.lastQueriedMenu  = PBM.State.lastQueriedMenu  or {}  -- [botName] = menuFrame (most-recently-opened)
-PBM.State.pickingPending   = PBM.State.pickingPending   or {}  -- [botName] = true while waiting for "Picking X" reply
+PBM.State.pickingPending   = PBM.State.pickingPending   or {}  -- [botName] = {spec} while waiting for "Picking X" reply
 
 local function CoreTimerAfter(delay, func)
     if C_Timer and C_Timer.After then
@@ -25,11 +25,23 @@ local function CoreTimerAfter(delay, func)
     end
 end
 
-function PBM.OnBridgeTalentSpecApplied(botName)
+function PBM.OnBridgeTalentSpecApplied(botName, wowSpec)
+    local pending = PBM.State.pickingPending[botName]
+    wowSpec = wowSpec or (pending and pending.spec)
     PBM.State.pickingPending[botName] = nil
+    local index = PBM.FindTrackedRowIndexByName and PBM.FindTrackedRowIndexByName(botName)
+    if index and wowSpec then
+        LichborneTrackerDB.rows[index].spec = wowSpec
+        if PBM.RefreshRows then PBM.RefreshRows() end
+        if PBM.RefreshOverviewRows then PBM.RefreshOverviewRows() end
+        if PBM.RefreshRaidRows then PBM.RefreshRaidRows() end
+    end
     local menuFrame = PBM.State.lastQueriedMenu[botName]
     if not menuFrame or not menuFrame:IsShown() or menuFrame.botName ~= botName then return end
 
+    if wowSpec and menuFrame.specBtn then
+        menuFrame.specBtn.icon:SetTexture(PBM.SPEC_ICONS[wowSpec] or "Interface\\Icons\\INV_Misc_QuestionMark")
+    end
     if menuFrame.clearStratDisplay then menuFrame.clearStratDisplay() end
     if menuFrame.resetAllIcons then menuFrame.resetAllIcons() end
     if menuFrame.resetRoleIcons then menuFrame.resetRoleIcons() end
