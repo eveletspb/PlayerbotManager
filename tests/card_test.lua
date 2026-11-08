@@ -86,4 +86,42 @@ for _,frame in ipairs(frames) do if frame.events.CHAT_MSG_WHISPER then core=fram
 core.scripts.OnEvent(core,'CHAT_MSG_WHISPER','Picking frost','Bot')
 assert(row.spec=='Frost' and other.spec=='Arcane' and PBM.State.pickingPending.Bot==nil)
 PBM.QueryBotStrategies=query
-print('PASS card: confirmed template writes, row identity, rejected/time-out applies and legacy confirmation')
+-- Run the actual Food click and shared NC reply handler against a rejected bridge write.
+dofile('PBM/PBM_Commands.lua')
+PBM.SendChatMessage=function() end
+PBM.AfterChatQueue=function(callback) callback() end
+local function IconOn(button) button.state=true end
+local function IconOff(button) button.state=false end
+local food={state=false,SetScript=function(self,_,callback) self.click=callback end}
+local loot,gather,pvp={},{},{}
+first=assert(sheet:find('    local _baseSU = menu.onStrategyUpdate',1,true))
+last=assert(sheet:find('    -- ── onWhoResponse',first,true))
+assert(loadstring('return function(menu,treeFoodBtn,treeLootBtn,treeGatherBtn,treePvpBtn,IconOn,IconOff)\n'..
+    sheet:sub(first,last-1)..'\nend'))()(card,food,loot,gather,pvp,IconOn,IconOff)
+first=assert(sheet:find('    treeFoodBtn:SetScript("OnClick", function()',1,true))
+last=assert(sheet:find('\n    menu.treeFoodBtn',first,true))
+assert(loadstring('return function(menu,treeFoodBtn,IconOn,IconOff)\n'..
+    sheet:sub(first,last-1)..'\nend'))()(card,food,IconOn,IconOff)
+PBM.UpdateStrategyToggles=function(menu,scope,set) menu.onStrategyUpdate(scope,set) end
+PBM.Bridge.state='available'
+PBM.Bridge.capabilities.STRATEGY_MUTATION_V1=true
+PBM.Bridge.capabilities.STATE_FRAMING_V1=true
+card.botName='Bot'
+food.click()
+assert(food.state and card._specUserSet)
+token=assert(sent[#sent]:match('STRATEGY~BOT~Bot~([^~]+)'))
+receive('STRATEGY_ACK','BOT~Bot~'..token..'~N~1~0~1~FORBIDDEN')
+token=sent[#sent]:match('([^~]+)$')
+receive('STATE_BEGIN',token..'~Bot~0~0')
+receive('STATE_END',token..'~Bot~0~0')
+assert(not food.state and not card._specUserSet)
+-- Successful writes also reconcile all icons with the returned server state.
+food.click()
+token=assert(sent[#sent]:match('STRATEGY~BOT~Bot~([^~]+)'))
+receive('STRATEGY_ACK','BOT~Bot~'..token..'~N~1~1~0~OK')
+token=sent[#sent]:match('([^~]+)$')
+receive('STATE_BEGIN',token..'~Bot~0~1')
+receive('STATE_ITEM',token..'~Bot~N~1~food')
+receive('STATE_END',token..'~Bot~0~1')
+assert(food.state and not loot.state and not card._specUserSet)
+print('PASS card: confirmed templates, row identity, rejected/time-out applies, legacy and toggle reconciliation')

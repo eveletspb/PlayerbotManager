@@ -540,6 +540,7 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
 
         local frame = PBM.State.lastQueriedMenu[name]
         if frame and frame:IsShown() and frame.botName == name then
+            frame._specUserSet = nil
             PBM.UpdateStrategyToggles(frame, "co", coSet)
             PBM.UpdateStrategyToggles(frame, "nc", ncSet)
         end
