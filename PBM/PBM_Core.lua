@@ -132,8 +132,8 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                     menuFrame.onWhoResponse(sender, clean)
                 end
                 ep.requestSpells()
+                return
             end
-            return
         end
 
         -- Talent spec picked: bot replies "Picking <spec>"

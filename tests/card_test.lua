@@ -85,10 +85,13 @@ end
 assert(row.spec=='Fire')
 local core
 for _,frame in ipairs(frames) do if frame.events.CHAT_MSG_WHISPER then core=frame end end
+-- An unrelated pending who read must not swallow the talent confirmation.
+PBM.State.strategyPending.Bot={extended=true,step=4}
 core.scripts.OnEvent(core,'CHAT_MSG_WHISPER','Picking fire','Bot')
 assert(row.spec=='Fire' and PBM.State.pickingPending.Bot)
 core.scripts.OnEvent(core,'CHAT_MSG_WHISPER','Picking frost','Bot')
 assert(row.spec=='Frost' and other.spec=='Arcane' and PBM.State.pickingPending.Bot==nil)
+PBM.State.strategyPending.Bot=nil
 -- A silent legacy failure releases the pending template without changing saved data.
 row.spec='Fire'
 PBM.ApplyTalentTemplate('Bot','frost','Frost')
