@@ -94,4 +94,33 @@ tick(6)
 command('co ?'); reply('Strategies: fire')
 command('nc ?'); reply('Strategies: food')
 assert(notes[#notes].co.fire and PBM.State.strategyPending.Bot==nil)
-print('PASS legacy: background/extended queries, rapid toggles, superseded requests and timeout recovery')
+-- Every legacy stage after CO/NC has its own deadline, including bridge fallback.
+PBM.Bridge.state='unavailable'
+for stage=3,5 do
+    local name='SilentStep'..stage
+    PBM.QueryBotStrategies(name,nil,true)
+    command('co ?'); reply('Strategies: fire',name)
+    command('nc ?'); reply('Strategies: food',name)
+    command('stats')
+    if stage>=4 then reply('Bag, 4/20 Dur 100',name); command('who') end
+    if stage==5 then reply('Bot (80 lvl)',name); command('ss ?') end
+    assert(PBM.State.strategyPending[name].step==stage)
+    errorCount=#errors
+    tick(6)
+    assert(not PBM.State.strategyPending[name] and #errors==errorCount+1)
+    PBM.QueryBotStrategies(name,nil,false)
+    command('co ?'); reply('Strategies: fire',name)
+    command('nc ?'); reply('Strategies: food',name)
+    assert(not PBM.State.strategyPending[name])
+end
+-- An expired deadline from stats must not cancel the later who stage.
+PBM.QueryBotStrategies('SlowSteps',nil,true)
+command('co ?'); reply('Strategies: fire','SlowSteps')
+command('nc ?'); reply('Strategies: food','SlowSteps')
+command('stats'); tick(4)
+reply('Bag, 4/20 Dur 100','SlowSteps'); command('who'); tick(1)
+assert(PBM.State.strategyPending.SlowSteps.step==4)
+reply('Bot (80 lvl)','SlowSteps'); command('ss ?')
+reply('Ignored spell list: [Fireball]','SlowSteps')
+assert(not PBM.State.strategyPending.SlowSteps)
+print('PASS legacy: background/extended queries, rapid toggles, superseded requests and per-stage timeout recovery')

@@ -130,8 +130,7 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                 if menuFrame and menuFrame.botName == sender and menuFrame.onWhoResponse then
                     menuFrame.onWhoResponse(sender, clean)
                 end
-                PBM.SendToBot("ss ?", sender)
-                ep.step = 5
+                ep.requestSpells()
             end
             return
         end
@@ -509,6 +508,18 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
     }
     PBM.State.strategyPending[botName] = query
 
+    local function RequestLegacyStep(command, step)
+        if PBM.State.strategyPending[botName] ~= query then return end
+        query.step = step
+        PBM.SendToBot(command, botName)
+        PBM.AfterChatQueue(function()
+            PBM.TimerAfter(5, function()
+                if PBM.State.strategyPending[botName] ~= query or query.step ~= step then return end
+                PBM.State.strategyPending[botName] = nil
+                DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Timed out waiting for " .. botName .. " " .. command .. " data. Try again.")
+            end)
+        end)
+    end
     local OnState
     local function QueryLegacy()
         PBM.SendToBot("co ?", botName, function(coSet)
@@ -548,15 +559,12 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
 
         if pending.extended then
             local function LegacyStats()
-                if PBM.State.strategyPending[name] ~= pending then return end
-                pending.step = 3
-                PBM.SendToBot("stats", name)
+                RequestLegacyStep("stats", 3)
             end
             local function LegacyDetail()
-                if PBM.State.strategyPending[name] ~= pending then return end
-                pending.step = 4
-                PBM.SendToBot("who", name)
+                RequestLegacyStep("who", 4)
             end
+            pending.requestSpells = function() RequestLegacyStep("ss ?", 5) end
             pending.requestDetail = function()
                 if PBM.State.strategyPending[name] ~= pending then return end
                 local sent = PBM.BridgeRequestDetail and PBM.BridgeRequestDetail(name, function(detailName, race, gender, className, level, t1, t2, t3)
@@ -566,8 +574,7 @@ function PBM.QueryBotStrategies(botName, menuFrame, extended)
                     if frame and frame:IsShown() and frame.botName == name and frame.applyBridgeDetail then
                         frame.applyBridgeDetail(detailName, race, gender, className, level, t1, t2, t3)
                     end
-                    PBM.SendToBot("ss ?", name)
-                    pending.step = 5
+                    pending.requestSpells()
                 end, LegacyDetail)
                 if not sent then LegacyDetail() end
             end
