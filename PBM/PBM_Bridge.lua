@@ -141,6 +141,14 @@ function PBM.BridgeSend(opcode, payload, token, callback, onTimeout)
     return true, token
 end
 
+function PBM.BridgeSendRaidAttunements(action, code)
+    if not PBM.BridgeHasCapability("RAID_ATTUNEMENTS_V1") then return false end
+    if action == "list" then return PBM.BridgeSend("GET", "RAID_ATTUNEMENTS") end
+    local fields = { "RAID_ATTUNEMENTS", action:upper() }
+    if code then fields[#fields + 1] = code end
+    return PBM.BridgeSend("RUN", table.concat(fields, FIELD_SEPARATOR))
+end
+
 function PBM.BridgeProbe()
     if PBM.Bridge.state == "probing" or PBM.Bridge.state == "available" then return end
 
@@ -600,6 +608,13 @@ function PBM.HandleBridgeMessage(message, sender)
         if PBM.Bridge.state == "probing" and PBM.Bridge.helloReceived then
             PBM.Bridge.state = "available"
         end
+        return true
+    end
+
+    if opcode == "RAID_ATTUNEMENTS" and PBM.HandleRaidAttunementFrame then
+        local fields = SplitFields(payload)
+        for i, value in ipairs(fields) do fields[i] = UrlDecode(value) end
+        PBM.HandleRaidAttunementFrame("bridge", table.concat(fields, " "))
         return true
     end
 

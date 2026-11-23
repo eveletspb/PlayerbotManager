@@ -15,8 +15,9 @@ Use **Refresh** to read the current state again.
 
 **Grant...** adds one selected attunement and **Sync from me** adds the current
 character's missing attunements to online raid bots. These actions require a
-GM raid leader and the Individual Progression server module with
-`.ip attune raid` support. Human players and selfbots are skipped, and existing
+GM raid leader and the Individual Progression server module. The addon uses
+MBOT when the server advertises `RAID_ATTUNEMENTS_V1`, or `.ip attune raid`
+otherwise. Human players and selfbots are skipped, and existing
 attunements are preserved. After a timeout, use Refresh to check the server's
 current state before issuing another grant or sync.
 

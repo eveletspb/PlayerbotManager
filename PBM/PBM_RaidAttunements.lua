@@ -16,6 +16,8 @@ local results = {
     no_bots = "No eligible online bots.", no_raid = "Join a raid to view attunements.",
     not_leader = "Only the raid leader can grant or sync attunements.",
     unknown_attunement = "This attunement is unavailable on the server.",
+    not_allowed = "Raid attunements require Game Master access.",
+    rate_limited = "Too many requests. Refresh in a moment.",
 }
 local rowStatuses = {
     source = "Current character", player_skipped = "Player (read only)", offline = "Offline",
@@ -69,15 +71,21 @@ function PBM.RequestRaidAttunements(action, code)
     state.busy = true
     state.message = "Waiting for raid attunements..."
     Notify()
-    PBM.SendChatMessage(".ip attune raid " .. action .. (code and " " .. code or ""), "SAY", nil, nil, function()
-        if request ~= active then return false end
-        if active.stale or active.roster ~= roster or GetNumRaidMembers() == 0 or (write and not IsRaidLeader()) then
-            Finish("Raid changed. Refresh to try again.")
-            return false
-        end
-        active.sent = true
-        return true
-    end)
+    active.transport = "bridge"
+    active.sent = true
+    if not PBM.BridgeSendRaidAttunements or not PBM.BridgeSendRaidAttunements(action, code) then
+        active.transport = "chat"
+        active.sent = false
+        PBM.SendChatMessage(".ip attune raid " .. action .. (code and " " .. code or ""), "SAY", nil, nil, function()
+            if request ~= active then return false end
+            if active.stale or active.roster ~= roster or GetNumRaidMembers() == 0 or (write and not IsRaidLeader()) then
+                Finish("Raid changed. Refresh to try again.")
+                return false
+            end
+            active.sent = true
+            return true
+        end)
+    end
     local remaining = 8
     frame:SetScript("OnUpdate", function(_, elapsed)
         remaining = remaining - elapsed
@@ -149,20 +157,10 @@ function PBM.ShowRaidAttunementTooltip(owner, name)
     GameTooltip:Show()
 end
 
-frame:RegisterEvent("CHAT_MSG_SYSTEM")
-frame:RegisterEvent("RAID_ROSTER_UPDATE")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:SetScript("OnEvent", function(_, event, message)
-    if event ~= "CHAT_MSG_SYSTEM" then
-        local changed = UpdateRoster(false)
-        if Visible() and PBM.RebuildGroupViewRoster then PBM.RebuildGroupViewRoster() end
-        if Visible() and changed and not request then PBM.RequestRaidAttunements("list") end
-        return
-    end
-
+function PBM.HandleRaidAttunementFrame(transport, message)
     local active = request
-    if not active or not active.sent then return end
-    local kind, payload = message:match("^PBM_ATTUNE_V1 (%u+) (.+)$")
+    if not active or not active.sent or active.transport ~= transport then return end
+    local kind, payload = message:match("^(%u+) (.+)$")
     if kind == "BEGIN" then
         local action, count = payload:match("^(%l+) (%d+)$")
         if action ~= active.action then return end
@@ -209,6 +207,21 @@ frame:SetScript("OnEvent", function(_, event, message)
             Finish(results[result])
         end
     end
+end
+
+frame:RegisterEvent("CHAT_MSG_SYSTEM")
+frame:RegisterEvent("RAID_ROSTER_UPDATE")
+frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:SetScript("OnEvent", function(_, event, message)
+    if event ~= "CHAT_MSG_SYSTEM" then
+        local changed = UpdateRoster(false)
+        if Visible() and PBM.RebuildGroupViewRoster then PBM.RebuildGroupViewRoster() end
+        if Visible() and changed and not request then PBM.RequestRaidAttunements("list") end
+        return
+    end
+
+    local payload = message:match("^PBM_ATTUNE_V1 (.+)$")
+    if payload then PBM.HandleRaidAttunementFrame("chat", payload) end
 end)
 
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message)
