@@ -25,7 +25,7 @@ local gvMouseHeld  = false
 local gvDragSource = nil   -- visible row index (1..GV_VISIBLE) being dragged
 
 -- ── GV-specific column layout (mirrors class tab constants) ─────
-local GV_RH        = 22   -- row height; 20 rows then the two avg bars (flush, no gap)
+local GV_RH        = 21
 local GV_VISIBLE   = 20
 local GV_NUM_OFF   = 0;   local GV_NUM_W   = 18
 local GV_SPEC_OFF  = 20;  local GV_SPEC_W  = 22   -- PBM.SPEC_OFF / PBM.COL_SPEC_W-2
@@ -33,16 +33,23 @@ local GV_NAME_OFF  = 50;  local GV_NAME_W  = 96   -- PBM.NAME_OFF / PBM.COL_NAME
 local GV_ILVL_OFF  = 150; local GV_ILVL_W  = 40   -- PBM.GS_OFF / PBM.COL_GS_W-2
 local GV_GS_OFF    = 194; local GV_GS_W    = 40   -- PBM.REALGS_OFF / PBM.COL_GS_W-2
 local GV_PROF_OFF  = 238; local GV_PROF_W  = PBM.COL_NEEDS_W  -- 42, PBM.NEEDS_OFF
--- 17 slots × step44 = 748px; 282+748=1030 < 1086 row width.  +Raid at RIGHT-36, >Group at RIGHT-20, x at RIGHT-2.
-local GV_GEAR_OFF  = 282  -- PBM.GEAR_OFF
-local GV_GEAR_STEP = 44   -- PBM.COL_GEAR_W
-local GV_GEAR_BSIZ = 42   -- PBM.COL_GEAR_W-2
+local GV_GEAR_OFF  = 282
+local GV_GEAR_STEP = 36
+local GV_GEAR_BSIZ = 34
+local GV_ATTUNE_OFF = GV_GEAR_OFF + PBM.GEAR_SLOTS * GV_GEAR_STEP
+local GV_ATTUNE_W = 134
 
 -- ── Build + sort the live member list ────────────────────────────
 local function BuildGVMemberList()
-    local gnames = PBM.GetGroupMemberNameSet()
-    local names  = {}
-    for name in pairs(gnames) do names[#names + 1] = name end
+    local names = {}
+    if GetNumRaidMembers() > 0 then
+        for i = 1, GetNumRaidMembers() do
+            local name = GetRaidRosterInfo(i)
+            if name then names[#names + 1] = name end
+        end
+    else
+        for name in pairs(PBM.GetGroupMemberNameSet()) do names[#names + 1] = name end
+    end
     table.sort(names)  -- base alphabetical
 
     local dbLookup = {}
@@ -157,6 +164,7 @@ function PBM.RefreshGroupViewRows()
         local hasDb = data ~= nil
 
         rf.charName = name
+        rf.attunements:SetText(PBM.RaidAttunementRowText(name))
         rf.dbIndex  = entry and entry.dbIndex or nil
 
         -- Row number (or level / IP tier when those filters are active)
@@ -326,14 +334,80 @@ function PBM.BuildGroupView(parent, fl)
 
     local gvf = CreateFrame("Frame", "LichborneGroupViewFrame", parent)
     gvf:SetPoint("TOPLEFT", parent, "TOPLEFT", 15, -66)
-    gvf:SetSize(totalW, 516)  -- colHdr(18)+gap(2)+20rows(440)+bar1(24)+gap(2)+bar2(24)+buffer(6)
+    gvf:SetSize(totalW, 516)
     gvf:SetFrameLevel(fl + 10)
     gvf:Hide()
     PBM.State.groupViewFrame = gvf
 
-    -- ── Column headers (no title bar — mirrors class tab style) ─────
+    local attuneBar = CreateFrame("Frame", nil, gvf)
+    attuneBar:SetPoint("TOPLEFT", gvf, "TOPLEFT", 0, 0)
+    attuneBar:SetSize(totalW, 20)
+    attuneBar:SetFrameLevel(fl + 11)
+
+    local grant = CreateFrame("Button", nil, attuneBar, "UIPanelButtonTemplate")
+    grant:SetPoint("LEFT", attuneBar, "LEFT", 2, 0)
+    grant:SetSize(76, 20)
+    grant:SetText("Grant...")
+    local sync = CreateFrame("Button", nil, attuneBar, "UIPanelButtonTemplate")
+    sync:SetPoint("LEFT", grant, "RIGHT", 4, 0)
+    sync:SetSize(106, 20)
+    sync:SetText("Sync from me")
+    sync:SetScript("OnClick", function() PBM.RequestRaidAttunements("sync") end)
+
+    local menu = CreateFrame("Frame", "LichborneRaidAttunementMenu", gvf, "UIDropDownMenuTemplate")
+    local options = {}
+    for _, entry in ipairs(PBM.RaidAttunements.catalog) do
+        local code = entry[1]
+        options[#options + 1] = {
+            text = "Grant " .. entry[3], notCheckable = true,
+            func = function() PBM.RequestRaidAttunements("grant", code) end,
+        }
+    end
+    grant:SetScript("OnClick", function(self) EasyMenu(options, menu, self, 0, 0, "MENU") end)
+
+    local summary = attuneBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    summary:SetPoint("LEFT", sync, "RIGHT", 8, 0)
+    summary:SetPoint("RIGHT", attuneBar, "RIGHT", -4, 0)
+    summary:SetJustifyH("LEFT")
+    summary:SetWordWrap(false)
+    function PBM.RefreshRaidAttunements()
+        local attune = PBM.RaidAttunements
+        if attune.ready and not attune.busy and IsRaidLeader() then
+            grant:Enable()
+            sync:Enable()
+        else
+            grant:Disable()
+            sync:Disable()
+        end
+
+        local parts = {}
+        if attune.ready then
+            local online, offline, counts = 0, 0, {}
+            for _, row in pairs(attune.rows) do
+                if row.status == "offline" then
+                    offline = offline + 1
+                else
+                    online = online + 1
+                    for code in pairs(row.codes) do counts[code] = (counts[code] or 0) + 1 end
+                end
+            end
+            for _, entry in ipairs(attune.catalog) do
+                parts[#parts + 1] = entry[2] .. " " .. (counts[entry[1]] or 0) .. "/" .. online
+            end
+            if offline > 0 then parts[#parts + 1] = "Offline " .. offline end
+        end
+        if attune.message then parts[#parts + 1] = attune.message end
+        summary:SetText(table.concat(parts, "   "))
+        PBM.RefreshGroupViewRows()
+    end
+    gvf:SetScript("OnShow", function()
+        PBM.RebuildGroupViewRoster()
+        PBM.RefreshRaidAttunementRoster()
+    end)
+
+    -- ── Column headers ───────────────────────────────────────────
     local colHdr = CreateFrame("Frame", nil, gvf)
-    colHdr:SetPoint("TOPLEFT", gvf, "TOPLEFT", 0, 0)
+    colHdr:SetPoint("TOPLEFT", gvf, "TOPLEFT", 0, -20)
     colHdr:SetSize(totalW, 18); colHdr:SetFrameLevel(fl + 11)
     local chBg = colHdr:CreateTexture(nil, "BACKGROUND")
     chBg:SetAllPoints(colHdr); chBg:SetTexture(0.08, 0.20, 0.42, 1)
@@ -396,6 +470,8 @@ function PBM.BuildGroupView(parent, fl)
         SH(PBM.SLOT_ABBR[g] or tostring(g), GV_GEAR_OFF + (g-1)*GV_GEAR_STEP, GV_GEAR_BSIZ, "gear_"..g, true)
     end
 
+    H("Attunements", GV_ATTUNE_OFF, GV_ATTUNE_W)
+
     -- Refresh button — sits in the column header above the + > x buttons
     local refreshBtn = CreateFrame("Button", nil, colHdr)
     refreshBtn:SetSize(52, 16)
@@ -415,7 +491,10 @@ function PBM.BuildGroupView(parent, fl)
         GameTooltip:Show()
     end)
     refreshBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    refreshBtn:SetScript("OnClick", function() PBM.OpenGroupView() end)
+    refreshBtn:SetScript("OnClick", function()
+        PBM.OpenGroupView()
+        PBM.RefreshRaidAttunementRoster()
+    end)
 
     -- ── Mousewheel ───────────────────────────────────────────────
     local function GVScroll(delta)
@@ -430,7 +509,7 @@ function PBM.BuildGroupView(parent, fl)
     gvf:SetScript("OnMouseWheel", function(_, delta) GVScroll(delta) end)
 
     -- ── 20 static row frames ─────────────────────────────────────
-    local yStart = -20
+    local yStart = -40
     for i = 1, GV_VISIBLE do
         local rf = CreateFrame("Frame", "LichborneGVRow" .. i, gvf)
         rf:SetPoint("TOPLEFT", gvf, "TOPLEFT", 0, yStart - (i-1)*RH)
@@ -548,7 +627,20 @@ function PBM.BuildGroupView(parent, fl)
         -- Prof cell (mirrors class tab behaviour — includes Role section in picker)
         rf.profCell = PBM.MakeProfCell(rf, GV_PROF_OFF, RH, function() return rf.charName or "" end, hov, GV_PROF_W)
 
-        -- Gear boxes (shifted to GV_GEAR_OFF=350)
+        local attuneCell = CreateFrame("Frame", nil, rf)
+        attuneCell:SetPoint("LEFT", rf, "LEFT", GV_ATTUNE_OFF, 0)
+        attuneCell:SetSize(GV_ATTUNE_W, RH)
+        attuneCell:EnableMouse(true)
+        attuneCell:EnableMouseWheel(true)
+        attuneCell:SetScript("OnMouseWheel", function(_, delta) GVScroll(delta) end)
+        attuneCell:SetScript("OnEnter", function(self) PBM.ShowRaidAttunementTooltip(self, rf.charName) end)
+        attuneCell:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        local attuneText = attuneCell:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        attuneText:SetAllPoints(attuneCell)
+        attuneText:SetWordWrap(false)
+        rf.attunements = attuneText
+
+        -- Gear boxes
         rf.gearBoxes = {}
         for g = 1, PBM.GEAR_SLOTS do
             local gx  = GV_GEAR_OFF + (g-1)*GV_GEAR_STEP
@@ -778,7 +870,7 @@ function PBM.BuildGroupView(parent, fl)
         return blbl
     end
 
-    -- 20 rows end at yStart - 20*RH = -20 - 440 = -460; bars sit flush below with 2px gap between them.
+    -- The last row ends at yStart - 20 * RH = -460.
     PBM.State.gvGroupIlvlLabel = BuildAvgBar(-460, "Avg iLvL:", "ilvl", PBM.State.gvAvgSwatches, "Group iLvL")
     PBM.State.gvGroupGsLabel   = BuildAvgBar(-486, "Avg GS:",   "gs",   PBM.State.gvGsSwatches,  "Group GS")
 end
@@ -834,9 +926,13 @@ function PBM.UpdateGroupSummary()
 end
 
 -- ── Called when the view is toggled ON ───────────────────────────
-function PBM.OpenGroupView()
+function PBM.RebuildGroupViewRoster()
     BuildGVMemberList()
-    PBM.State.gvScrollOffset = 0
     if PBM.State.UpdateGVSortHeaders then PBM.State.UpdateGVSortHeaders() end
     PBM.RefreshGroupViewRows()
+end
+
+function PBM.OpenGroupView()
+    PBM.State.gvScrollOffset = 0
+    PBM.RebuildGroupViewRoster()
 end

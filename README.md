@@ -6,6 +6,20 @@
 
 ---
 
+## Raid attunements
+
+Open **Group** in an in-game raid to see each member's attunements. The bar
+above the table shows coverage among online members and the number offline.
+Hover over a character's attunements for full raid names and any grant errors.
+Use **Refresh** to read the current state again.
+
+**Grant...** adds one selected attunement and **Sync from me** adds the current
+character's missing attunements to online raid bots. These actions require a
+GM raid leader and the Individual Progression server module with
+`.ip attune raid` support. Human players and selfbots are skipped, and existing
+attunements are preserved. After a timeout, use Refresh to check the server's
+current state before issuing another grant or sync.
+
 ## Optional mod-multibot-bridge transport
 
 Playerbot Manager can work with the optional AzerothCore `mod-multibot-bridge`.

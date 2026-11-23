@@ -38,6 +38,7 @@ PBM\PBM_Warlock.lua
 PBM\PBM_Warrior.lua
 PBM\PBM_Raid.lua
 PBM\PBM_Overview.lua
+PBM\PBM_RaidAttunements.lua
 PBM\PBM_GroupView.lua
 PBM\PBM_BotSettings.lua
 PBM\PBM_Tab_Playerbots.lua
