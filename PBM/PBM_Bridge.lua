@@ -360,11 +360,9 @@ local function PrepareBridgeInventory(botName)
     end
 
     local items = PBM.inventory.frames["Items"]
-    for _, button in pairs(items.buttons) do button:Hide() end
-    for key in pairs(items.buttons) do items.buttons[key] = nil end
+    PBM.ResetInventorySlots(items)
     PBM.inventory.setText("Title", PBM.doReplace(PBM.info.inventory, "NAME", botName))
     PBM.inventory.name = botName
-    items.index = 0
 end
 
 function PBM.BridgeRequestInventory(botName)

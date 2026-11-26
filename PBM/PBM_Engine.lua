@@ -1088,11 +1088,13 @@ PBM.newButton = function(pParent, pX, pY, pSize, pTexture, pTip, oTemplate)
 	end
 
 	button.setAmount = function(pAmount)
-		if(button.amount ~= nil) then button.amount:Hide() end
-		button.amount = button:CreateFontString(nil, "ARTWORK")
-		button.amount:SetFont("Fonts\\ARIALN.ttf", 13, "OUTLINE")
-		button.amount:SetPoint("BOTTOMRIGHT", 0, 0)
+        if not button.amount then
+            button.amount = button:CreateFontString(nil, "ARTWORK")
+            button.amount:SetFont("Fonts\\ARIALN.ttf", 13, "OUTLINE")
+            button.amount:SetPoint("BOTTOMRIGHT", 0, 0)
+        end
 		button.amount:SetText(pAmount)
+        button.amount:Show()
 		return button
 	end
 

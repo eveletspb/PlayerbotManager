@@ -75,16 +75,18 @@ PBM.OpenInventoryWindow('A'); local a=token()
 receive('INV_BEGIN','A~'..a); receive('INV_ITEM','A~'..a..'~'..line); receive('INV_END','A~'..a)
 assert(PBM.inventory.name=='A' and PBM.inventory:IsVisible())
 local oldButton=items.buttons[1]
+local oldAction=oldButton.doLeft
 PBM.inventory.action='destroy'
 PBM.OpenInventoryWindow('B'); local b=token()
 local count=#sent
-oldButton.doLeft(oldButton)
+oldAction(oldButton)
 assert(#sent==count and not PBM.inventory:IsVisible())
 receive('INV_BEGIN','B~'..b); receive('INV_ITEM','B~'..b..'~'..line); receive('INV_END','B~'..b)
 assert(PBM.inventory.name=='B' and not PBM.inventory.loading)
-oldButton.doLeft(oldButton)
+oldAction(oldButton)
 assert(#sent==count)
 local currentButton=items.buttons[1]
+assert(currentButton==oldButton)
 currentButton.doLeft(currentButton)
 assert(sent[#sent].target=='B' and sent[#sent].msg:find('destroy',1,true))
 -- Refresh uses the same public request path; there is no MultiBar in PBM.
@@ -94,6 +96,19 @@ for _, f in ipairs(frames) do if f.scripts.OnUpdate and f~=talentTimer and f.sho
 assert(sent[#sent].wire:find('GET~INVENTORY~B~',1,true))
 local refresh=token()
 receive('INV_BEGIN','B~'..refresh); receive('INV_END','B~'..refresh)
+local function inventorySnapshot(size)
+    PBM.OpenInventoryWindow('B')
+    local requestToken=token()
+    receive('INV_BEGIN','B~'..requestToken)
+    for _=1,size do receive('INV_ITEM','B~'..requestToken..'~'..line) end
+    receive('INV_END','B~'..requestToken)
+end
+inventorySnapshot(40)
+local allocated=#frames
+for _=1,50 do inventorySnapshot(40) end
+assert(#frames==allocated and items.buttons[40]:IsVisible())
+inventorySnapshot(1)
+assert(not items.buttons[40]:IsVisible() and not items.buttons[40].item and not items.buttons[40].doLeft)
 -- A superseded request must not open or overwrite the new inventory.
 PBM.OpenInventoryWindow('A'); a=token()
 PBM.OpenInventoryWindow('B'); b=token()

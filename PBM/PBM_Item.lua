@@ -8,6 +8,18 @@ local function CanChangeInventoryItem(frame, item)
     return true
 end
 
+function PBM.ResetInventorySlots(frame)
+    for slot, button in pairs(frame.buttons) do
+        if type(slot) == "number" then
+            button:Hide()
+            button.item = nil
+            button.tip = nil
+            button.doLeft = nil
+        end
+    end
+    frame.index = 0
+end
+
 PBM.addItem = function(pFrame, pInfo)
     local tLink = type(pInfo) == "string" and pInfo:match("^(|c%x%x%x%x%x%x%x%x|Hitem:%d+:[^|]*|h%[.-%]|h|r)")
     if not tLink then return end
@@ -24,8 +36,14 @@ PBM.addItem = function(pFrame, pInfo)
 	if(tName == nil) then tName = string.sub(tInfo[4], 3, string.len(tInfo[4]) - 1) end
 	if(tRare == nil) then tRare = 4 end -- for Security
 
-	local tButton = pFrame.addButton(pFrame.index + 1, tX, tY, tIcon, tLink)
-	pFrame.catButton("Catecher", 270, -490, 308, 524)
+    local slot = pFrame.index + 1
+    local tButton = pFrame.buttons[slot]
+    if tButton then
+        pFrame.setButton(slot, tIcon, tLink)
+        tButton:Show()
+    else
+        tButton = pFrame.addButton(slot, tX, tY, tIcon, tLink)
+    end
 
 	tButton.item = {}
 	tButton.item.id = tID
@@ -33,13 +51,14 @@ PBM.addItem = function(pFrame, pInfo)
 	tButton.item.name = tName
 	tButton.item.info = pInfo
 	tButton.item.rare = tRare
+    local item = tButton.item
 
 	--tButton.doLeft = function(pButton)
 		--local tAction = PBM.inventory.action
 		--local tName = PBM.inventory.name
 
     tButton.doLeft = function(pButton)
-        if PBM.inventory.loading or PBM.inventory.name ~= botName then return end
+        if PBM.inventory.loading or PBM.inventory.name ~= botName or pButton.item ~= item then return end
         local tAction = PBM.inventory.action
         if (tAction == "s" or tAction == "destroy") and not CanChangeInventoryItem(pFrame, pButton.item) then return end
 
@@ -128,6 +147,8 @@ PBM.addItem = function(pFrame, pInfo)
 
 	if(string.sub(tInfo[6], 1, 2) == "rx") then
 		tButton.setAmount(string.sub(PBM.doSplit(tInfo[6], " ")[1], 3))
+    elseif tButton.amount then
+        tButton.amount:Hide()
 	end
 
 	pFrame.index = pFrame.index + 1

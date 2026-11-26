@@ -231,6 +231,7 @@ PBM.inventory.addButton("Open", -94, 322.5, "inv_misc_gift_05", PBM.tips.invento
 end
 
 local tFrame = PBM.inventory.addFrame("Items", -397, 807, 32)
+tFrame.catButton("Catcher", 270, -490, 308, 524)
 tFrame:Show()
 
 -- ════════════════════════════════════════════════════════════
@@ -1187,11 +1188,9 @@ _whisperFrame:SetScript("OnEvent", function(self, event, msg, sender)
 	-- ── Inventory ──
 	if waitFor == "INVENTORY" and PBM.isInside(msg, "Inventory") then
 		local tItems = PBM.inventory.frames["Items"]
-		for key, value in pairs(tItems.buttons) do value:Hide() end
-		for key in pairs(tItems.buttons) do tItems.buttons[key] = nil end
+		PBM.ResetInventorySlots(tItems)
 		PBM.inventory.setText("Title", PBM.doReplace(PBM.info.inventory, "NAME", sender))
 		PBM.inventory.name = sender
-		tItems.index = 0
 		PBM._waitFor[sender] = "ITEM"
 		PBM.SendChatMessage("stats", "WHISPER", nil, sender)
 		return
