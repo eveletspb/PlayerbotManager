@@ -71,9 +71,20 @@ function PBM.RequestRaidAttunements(action, code)
     state.busy = true
     state.message = "Waiting for raid attunements..."
     Notify()
+    local function ArmReplyTimeout()
+        local remaining = 8
+        frame:SetScript("OnUpdate", function(_, elapsed)
+            remaining = remaining - elapsed
+            if remaining <= 0 then
+                Finish("Attunements unavailable or no complete reply. Refresh to try again.")
+            end
+        end)
+    end
     active.transport = "bridge"
     active.sent = true
-    if not PBM.BridgeSendRaidAttunements or not PBM.BridgeSendRaidAttunements(action, code) then
+    if PBM.BridgeSendRaidAttunements and PBM.BridgeSendRaidAttunements(action, code) then
+        if request == active then ArmReplyTimeout() end
+    else
         active.transport = "chat"
         active.sent = false
         PBM.SendChatMessage(".ip attune raid " .. action .. (code and " " .. code or ""), "SAY", nil, nil, function()
@@ -83,16 +94,10 @@ function PBM.RequestRaidAttunements(action, code)
                 return false
             end
             active.sent = true
+            ArmReplyTimeout()
             return true
         end)
     end
-    local remaining = 8
-    frame:SetScript("OnUpdate", function(_, elapsed)
-        remaining = remaining - elapsed
-        if remaining <= 0 then
-            Finish("Attunements unavailable or no complete reply. Refresh to try again.")
-        end
-    end)
     return true
 end
 

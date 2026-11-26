@@ -33,7 +33,9 @@ local function dispatch(command)
 end
 
 PBM.RefreshRaidAttunementRoster()
+assert(attune.busy and not scripts.OnUpdate)
 dispatch("list")
+assert(scripts.OnUpdate)
 reply("BEGIN list 3")
 reply("ROW Owner onyxia40,naxx40 source")
 reply("ROW Bot - unchanged")
@@ -51,6 +53,7 @@ assert(not PBM.RequestRaidAttunements("sync"))
 leader = true
 assert(PBM.RequestRaidAttunements("sync"))
 assert(not PBM.RequestRaidAttunements("sync"))
+assert(not scripts.OnUpdate)
 dispatch("sync")
 reply("BEGIN list 1")
 reply("ROW Intruder onyxia40 source")
