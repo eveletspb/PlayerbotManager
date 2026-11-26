@@ -137,24 +137,6 @@ end
 function PBM.RefreshRaidRows()
     if not PBM.State.raidRowFrames or #PBM.State.raidRowFrames == 0 then return end
 
-    -- Remove anyone from the current roster who no longer exists in class tabs
-    local classTabNames = {}
-    if LichborneTrackerDB.rows then
-        for _, classRow in ipairs(LichborneTrackerDB.rows) do
-            if classRow.name and classRow.name ~= "" then
-                classTabNames[classRow.name:lower()] = true
-            end
-        end
-    end
-    local roster, _ = PBM.GetCurrentRoster()
-    for i = 1, 40 do
-        if roster[i] and roster[i].name and roster[i].name ~= "" then
-            if not classTabNames[roster[i].name:lower()] then
-                roster[i] = {name="", cls="", spec="", gs=0}
-            end
-        end
-    end
-
     local raidRoleFilter  = PBM.State.LBFilter.raidRoleFilter
     local raidNotesFilter = PBM.State.LBFilter.raidNotesFilter
 

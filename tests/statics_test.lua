@@ -26,11 +26,24 @@ end
 local statics = {}
 for index = 1, 20 do statics[index] = { name = "Static " .. index } end
 StaticPopupDialogs = {}
-local dialog, selected
-function StaticPopup_Show(id, title) dialog, selected = id, title end
+local dialog, selected, destination, editData
+function StaticPopup_Show(id, title, target, data) dialog, selected, destination, editData = id, title, target, data end
 PBM = { State = {}, GetStatics = function() return statics end }
 dofile("PBM/PBM_Tab_Statics.lua")
 PBM.BuildStaticsPanel(Widget())
+LichborneTrackerDB = { raidName = "Current", raidGroup = "B" }
+statics[1].raidName = "Other raid"
+local loaded
+PBM.LoadStatic = function(index) loaded = index; return true end
+DEFAULT_CHAT_FRAME = { AddMessage = function() end }
+buttons[3].OnClick()
+assert(dialog == "PBM_EDIT_STATIC_TAB" and destination == "Other raid (B)" and not loaded)
+LichborneTrackerDB.raidGroup = "A"
+StaticPopupDialogs[dialog].OnAccept(nil, editData)
+assert(not loaded)
+LichborneTrackerDB.raidGroup = "B"
+StaticPopupDialogs[dialog].OnAccept(nil, editData)
+assert(loaded == 1 and PBM.State.activeTab == "Raid")
 local scroll = frames.PBMStaticsScrollFrame
 assert(scroll.child.height == 20 * 42)
 scroll:SetVerticalScroll(scroll.child.height - scroll.height)

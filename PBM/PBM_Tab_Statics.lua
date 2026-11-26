@@ -52,6 +52,27 @@ local function EnsureStaticDialogs()
         }
     end
 
+    if not StaticPopupDialogs["PBM_EDIT_STATIC_TAB"] then
+        StaticPopupDialogs["PBM_EDIT_STATIC_TAB"] = {
+            text = "Edit static |cffd4af37%s|r?\n\nThis replaces roster %s.",
+            button1 = "Edit", button2 = "Cancel",
+            OnAccept = function(_, selection)
+                if not selection or PBM.GetStatics()[selection.index] ~= selection.static or
+                    (LichborneTrackerDB.raidGroup or "A") ~= selection.group or
+                    (selection.static.raidName or LichborneTrackerDB.raidName or "N/A (5-Man)") ~= selection.raidName then return end
+                if not PBM.LoadStatic(selection.index) then return end
+                if PBM.RefreshRaidSelectionUI then PBM.RefreshRaidSelectionUI() end
+                if PBM.RefreshRaidRows then PBM.RefreshRaidRows() end
+                if PBM.RefreshOverviewRows then PBM.RefreshOverviewRows() end
+                PBM.State.activeTab = "Raid"
+                if PBM.UpdateTabs then PBM.UpdateTabs() end
+                if PBM.RefreshRows then PBM.RefreshRows() end
+                DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static loaded for editing. Modify the Raid roster, then save it with the same name to update the static.")
+            end,
+            timeout=0, whileDead=true, hideOnEscape=true,
+        }
+    end
+
     if not StaticPopupDialogs["PBM_LOAD_STATIC_TAB"] then
         StaticPopupDialogs["PBM_LOAD_STATIC_TAB"] = {
             text = "Load static |cffd4af37%s|r?\n\nThis replaces the current roster.",
@@ -193,18 +214,12 @@ function PBM.BuildStaticsPanel(panel)
             return MakeStaticButton(row, text, x, 4, 100, callback, color)
         end
         RowButton("Edit", 494, {0.20,0.70,0.40}, function()
-            if not PBM.LoadStatic(index) then return end
-            if PBM.RefreshRaidSelectionUI then PBM.RefreshRaidSelectionUI() end
-            if PBM.RefreshRaidRows then PBM.RefreshRaidRows() end
-            if PBM.RefreshOverviewRows then PBM.RefreshOverviewRows() end
-
-            -- The static itself is a saved snapshot.  Editing is performed
-            -- in the normal Raid roster UI, then Save Static with the same
-            -- name updates this snapshot instead of creating a duplicate.
-            PBM.State.activeTab = "Raid"
-            if PBM.UpdateTabs then PBM.UpdateTabs() end
-            if PBM.RefreshRows then PBM.RefreshRows() end
-            DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static loaded for editing. Modify the Raid roster, then save it with the same name to update the static.")
+            local static = PBM.GetStatics()[index]
+            if not static then return end
+            local raidName = static.raidName or LichborneTrackerDB.raidName or "N/A (5-Man)"
+            local group = LichborneTrackerDB.raidGroup or "A"
+            StaticPopup_Show("PBM_EDIT_STATIC_TAB", static.name or "Unnamed", raidName .. " (" .. group .. ")",
+                { index = index, static = static, raidName = raidName, group = group })
         end)
         RowButton("Load", 598, {0.20,0.50,0.90}, function()
             ShowStaticDialog("PBM_LOAD_STATIC_TAB")

@@ -302,9 +302,31 @@ function PBM.BridgeApplyTalentSpec(botName, slot, specIndex, callback)
     end)
 end
 
+local talentTemplateRequests = {}
+
 function PBM.ApplyTalentTemplate(botName, specName, wowSpec)
+    local key = botName:lower()
+    local previous = talentTemplateRequests[key]
+    if previous and previous.writing then
+        previous.next = { botName = botName, specName = specName, wowSpec = wowSpec }
+        return true
+    end
+
+    local request = {}
+    talentTemplateRequests[key] = request
+    local function Finish()
+        if talentTemplateRequests[key] ~= request then return end
+        talentTemplateRequests[key] = nil
+        local nextRequest = request.next
+        if nextRequest then
+            PBM.ApplyTalentTemplate(nextRequest.botName, nextRequest.specName, nextRequest.wowSpec)
+        end
+    end
+
     local function UseLegacy()
-        local pending = { name = specName, spec = wowSpec }
+        if talentTemplateRequests[key] ~= request then return end
+        request.writing = true
+        local pending = { name = specName, spec = wowSpec, done = Finish }
         PBM.State.pickingPending[botName] = pending
         PBM.SendToBot("talents switch 1", botName)
         BridgeTimerAfter(0.4, function()
@@ -315,6 +337,7 @@ function PBM.ApplyTalentTemplate(botName, specName, wowSpec)
                     if PBM.State.pickingPending[botName] ~= pending then return end
                     PBM.State.pickingPending[botName] = nil
                     DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Talent spec timed out for " .. botName .. ". Try again.")
+                    Finish()
                 end)
             end)
         end)
@@ -327,6 +350,7 @@ function PBM.ApplyTalentTemplate(botName, specName, wowSpec)
 
     local requested = string.lower(specName or "")
     local sent = PBM.BridgeRequestTalentSpecs(botName, function(specs)
+        if talentTemplateRequests[key] ~= request then return end
         specs = specs or {}
         local selected
         for _, spec in ipairs(specs) do
@@ -341,13 +365,16 @@ function PBM.ApplyTalentTemplate(botName, specName, wowSpec)
             return
         end
 
-        PBM.BridgeApplyTalentSpec(botName, 1, selected.index, function(ok, reason)
+        request.writing = true
+        local applied = PBM.BridgeApplyTalentSpec(botName, 1, selected.index, function(ok, reason)
             if ok then
                 if PBM.OnBridgeTalentSpecApplied then PBM.OnBridgeTalentSpecApplied(botName, wowSpec) end
             elseif DEFAULT_CHAT_FRAME then
                 DEFAULT_CHAT_FRAME:AddMessage("|cffFFAA00PBM:|r Talent spec failed: " .. tostring(reason))
             end
+            Finish()
         end)
+        if not applied then UseLegacy() end
     end, UseLegacy)
 
     if not sent then UseLegacy() end

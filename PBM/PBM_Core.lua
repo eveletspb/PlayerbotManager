@@ -141,6 +141,7 @@ _coreFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
         local picking = PBM.State.pickingPending[sender]
         if picking and msg == "Picking " .. picking.name then
             PBM.OnBridgeTalentSpecApplied(sender)
+            if picking.done then picking.done() end
             return
         end
 

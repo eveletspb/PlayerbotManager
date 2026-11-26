@@ -41,4 +41,21 @@ end
 assert(not auditMarker)
 assert(not PBM.LB_ImportDB('garbage'..PBM.EXPORT_PREFIX..'{}'))
 assert(not PBM.LB_ImportDB(PBM.EXPORT_PREFIX..string.rep(' ',2*1024*1024)..'{}'))
+-- The Raid redraw must keep roster-only entries accepted by the import.
+dofile('PBM/PBM_Database.lua')
+local file = assert(io.open('PBM/PBM_Raid.lua'))
+local source = file:read('*a')
+file:close()
+local first = assert(source:find('function PBM.RefreshRaidRows()', 1, true))
+local last = assert(source:find('        local data = rows[i]', first, true))
+assert(loadstring(source:sub(first, last - 1)..'\nend\nend'))()
+local imported = assert(PBM.LB_ImportDB(PBM.EXPORT_PREFIX..
+    '{raidRosters={["Test_A"]={{name="RosterOnly",cls="Mage",notes="Keep",role="D"}}}}'))
+LichborneTrackerDB.raidName, LichborneTrackerDB.raidGroup = 'Test', 'A'
+LichborneTrackerDB.raidRosters = imported.raidRosters
+PBM.State.raidRowFrames = {{Show=function() end}}
+PBM.SortRaidRows = function() end
+PBM.RefreshRaidRows()
+local slot = PBM.GetCurrentRoster()[1]
+assert(slot.name == 'RosterOnly' and slot.notes == 'Keep' and slot.role == 'D')
 print('PASS import: round-trip, legacy versions, code rejection, schema and limits')

@@ -141,6 +141,7 @@ local openedMenu
 function EasyMenu(entries) openedMenu = entries end
 dofile("PBM/PBM_GroupView.lua")
 PBM.BuildGroupView(makeFrame(), 0)
+PBM.State.groupViewFrame.IsVisible = function() return true end
 PBM.State.groupViewFrame.callbacks.OnShow()
 dispatch("list")
 reply("BEGIN list 3")
@@ -153,6 +154,14 @@ for _, frame in ipairs(frames) do
     if type(rawget(frame, "text")) == "string" then byText[frame.text] = frame end
 end
 assert(byText["Grant..."].enabled and byText["Sync from me"].enabled)
+local previousRows, sentBeforeLeadershipChange = attune.rows, #sent
+leader = false
+scripts.OnEvent(nil, "RAID_ROSTER_UPDATE")
+assert(not byText["Grant..."].enabled and not byText["Sync from me"].enabled)
+leader = true
+scripts.OnEvent(nil, "PARTY_LEADER_CHANGED")
+assert(byText["Grant..."].enabled and byText["Sync from me"].enabled)
+assert(attune.rows == previousRows and #sent == sentBeforeLeadershipChange)
 assert(byText["Ony 1/2   Naxx 0/2   SSC 0/2   TK 0/2   Hyjal 0/2   BT 0/2   Offline 1"])
 assert(PBM.State.groupViewRowFrames[2].attunements.text == "Offline")
 byText["Grant..."].callbacks.OnClick(byText["Grant..."])

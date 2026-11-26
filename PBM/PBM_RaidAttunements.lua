@@ -216,12 +216,20 @@ end
 
 frame:RegisterEvent("CHAT_MSG_SYSTEM")
 frame:RegisterEvent("RAID_ROSTER_UPDATE")
+frame:RegisterEvent("PARTY_LEADER_CHANGED")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:SetScript("OnEvent", function(_, event, message)
+    if event == "PARTY_LEADER_CHANGED" then
+        if PBM.RefreshRaidAttunementButtons then PBM.RefreshRaidAttunementButtons() end
+        return
+    end
     if event ~= "CHAT_MSG_SYSTEM" then
         local changed = UpdateRoster(false)
-        if Visible() and PBM.RebuildGroupViewRoster then PBM.RebuildGroupViewRoster() end
-        if Visible() and changed and not request then PBM.RequestRaidAttunements("list") end
+        if Visible() then
+            if PBM.RebuildGroupViewRoster then PBM.RebuildGroupViewRoster() end
+            if PBM.RefreshRaidAttunementButtons then PBM.RefreshRaidAttunementButtons() end
+            if changed and not request then PBM.RequestRaidAttunements("list") end
+        end
         return
     end
 

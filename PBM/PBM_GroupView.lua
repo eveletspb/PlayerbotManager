@@ -370,7 +370,7 @@ function PBM.BuildGroupView(parent, fl)
     summary:SetPoint("RIGHT", attuneBar, "RIGHT", -4, 0)
     summary:SetJustifyH("LEFT")
     summary:SetWordWrap(false)
-    function PBM.RefreshRaidAttunements()
+    function PBM.RefreshRaidAttunementButtons()
         local attune = PBM.RaidAttunements
         if attune.ready and not attune.busy and IsRaidLeader() then
             grant:Enable()
@@ -379,7 +379,11 @@ function PBM.BuildGroupView(parent, fl)
             grant:Disable()
             sync:Disable()
         end
+    end
 
+    function PBM.RefreshRaidAttunements()
+        PBM.RefreshRaidAttunementButtons()
+        local attune = PBM.RaidAttunements
         local parts = {}
         if attune.ready then
             local online, offline, counts = 0, 0, {}

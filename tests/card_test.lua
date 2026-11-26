@@ -103,6 +103,40 @@ for _,frame in ipairs(frames) do
 end
 assert(row.spec=='Fire' and PBM.State.pickingPending.Bot==nil)
 PBM.QueryBotStrategies=query
+-- New reads supersede old reads. Once a write is sent, only the latest
+-- queued choice may follow it, after the write has completed.
+local requestSpecs, applySpec = PBM.BridgeRequestTalentSpecs, PBM.BridgeApplyTalentSpec
+local reads, writes = {}, {}
+PBM.Bridge.state='available'
+PBM.BridgeRequestTalentSpecs=function(name, reply, timeout)
+    reads[#reads+1]={name=name, reply=reply, timeout=timeout}
+    return true
+end
+PBM.BridgeApplyTalentSpec=function(name, _, index, ack)
+    writes[#writes+1]={name=name, index=index, ack=ack}
+    return true
+end
+local templates={{name='fire',index=1},{name='frost',index=2}}
+PBM.ApplyTalentTemplate('Bot','fire','Fire')
+PBM.ApplyTalentTemplate('Bot','frost','Frost')
+reads[2].reply(templates)
+local beforeStale=#sent
+reads[1].reply(templates)
+reads[1].timeout()
+assert(#writes==1 and writes[1].index==2 and #sent==beforeStale)
+PBM.ApplyTalentTemplate('Bot','frost','Frost')
+PBM.ApplyTalentTemplate('Bot','fire','Fire')
+PBM.ApplyTalentTemplate('Other','frost','Frost')
+assert(#reads==3 and reads[3].name=='Other')
+reads[3].reply(templates)
+assert(#writes==2 and writes[2].name=='Other')
+writes[1].ack(true)
+assert(#reads==4 and reads[4].name=='Bot')
+reads[4].reply(templates)
+assert(#writes==3 and writes[3].index==1)
+writes[2].ack(true)
+writes[3].ack(true)
+PBM.BridgeRequestTalentSpecs, PBM.BridgeApplyTalentSpec = requestSpecs, applySpec
 -- Run the actual Food click and shared NC reply handler against a rejected bridge write.
 dofile('PBM/PBM_Commands.lua')
 PBM.SendChatMessage=function() end
