@@ -51,10 +51,17 @@ for _, name in ipairs({'inviteBtn','inviteGroupBtn'}) do
     assert(loadstring(section(raid,'    '..name..':SetScript("OnClick",function()',ending)))()
     _G[name].scripts.OnClick()
     local active=PBM.State.activeInviteFrame
+    active.scripts.OnUpdate(active,30) -- logout command has not been sent
+    assert(PBM.GetQueueSize()==2)
+    throttle.scripts.OnUpdate(throttle,1)
     active.scripts.OnUpdate(active,1.5)
     active.scripts.OnUpdate(active,1)
     active.scripts.OnUpdate(active,0.1)
     assert(PBM.GetQueueSize()>1)
+    local firstBatchSize=PBM.GetQueueSize()
+    active.scripts.OnUpdate(active,30)
+    active.scripts.OnUpdate(active,30)
+    assert(PBM.GetQueueSize()==firstBatchSize)
     PBM.SendChatMessage('unrelated PBM command','SAY')
     local before=#sent
     stopInviteBtn.scripts.OnClick()

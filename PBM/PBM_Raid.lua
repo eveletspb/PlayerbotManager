@@ -1898,7 +1898,17 @@ function PBM.BuildRaidFrame(parent, fl)
 
         local inviteIndex = 1
         local waitTime = 0
-        local phase = "logout_wait"
+        local phase = "queue_wait"
+        local retryNames
+        local function WaitForCommands(nextPhase)
+            phase = "queue_wait"
+            PBM.AfterChatQueue(function()
+                if not InviteIsActive() then return end
+                waitTime = 0
+                phase = nextPhase
+            end)
+        end
+        WaitForCommands("logout_wait")
         local reinviteSubPhase = "remove"
         local verifyDelay = 3
 
@@ -1923,11 +1933,7 @@ function PBM.BuildRaidFrame(parent, fl)
 
             elseif phase == "batch_invite" then
                 QueueBotAdds(names, GetClassHex, "Inviting", InviteIsActive)
-                phase = "verify_wait"
-                verifyDelay = 2 + math.ceil(#names / 5)
-                waitTime = 0
-                LichborneOutput("|cffC69B3APBM:|r Initial invites sent, verifying...",1,0.85,0)
-
+                WaitForCommands("verify_wait")
             elseif phase == "verify_wait" then
                 if waitTime < verifyDelay then return end
                 -- Detect whether WoW put us in a raid or a party and use the right API
@@ -1952,9 +1958,15 @@ function PBM.BuildRaidFrame(parent, fl)
                         missing[#missing+1] = pname
                     end
                 end
-                if #missing == 0 then
-                    LichborneOutput("|cffC69B3APBM:|r |cff44ff44All "..totalCount.." players confirmed in group!|r",1,0.85,0)
-                    if LichborneAddStatus then LichborneAddStatus:SetText("|cff44ff44All "..totalCount.." players confirmed.|r") end
+                if #missing == 0 or retryNames then
+                    local result
+                    if #missing == 0 then
+                        result = "|cff44ff44All "..totalCount.." players confirmed in group.|r"
+                    else
+                        result = "|cffff9900Not in group: "..table.concat(missing, ", ").."|r"
+                    end
+                    LichborneOutput("|cffC69B3APBM:|r "..result,1,0.85,0)
+                    if LichborneAddStatus then LichborneAddStatus:SetText(result) end
                     inviteFrame:SetScript("OnUpdate",nil)
                     PBM.State.activeInviteFrame = nil
                     PBM.SetInviteActive(false)
@@ -1962,31 +1974,27 @@ function PBM.BuildRaidFrame(parent, fl)
                     return
                 end
                 LichborneOutput("|cffC69B3APBM:|r |cffff9900"..#missing.." missed — re-inviting...|r",1,0.85,0)
-                names = missing
+                retryNames = missing
                 inviteIndex = 1
                 phase = "reinvite"
                 waitTime = 0
 
             elseif phase == "reinvite" then
                 if reinviteSubPhase == "remove" then
-                    if inviteIndex > #names then
-                        LichborneOutput("|cffC69B3APBM:|r |cff44ff44Re-invite pass complete.|r",1,0.85,0)
-                        if LichborneAddStatus then LichborneAddStatus:SetText("|cff44ff44Invite complete (re-invite pass done).|r") end
-                        inviteFrame:SetScript("OnUpdate",nil)
-                        PBM.State.activeInviteFrame = nil
-                        PBM.SetInviteActive(false)
-                        PBM.UpdateInviteButtons()
+                    if inviteIndex > #retryNames then
+                        WaitForCommands("verify_wait")
                         return
                     end
-                    local pname = names[inviteIndex]
+                    local pname = retryNames[inviteIndex]
                     PBM.SendChatMessage(".playerbots bot remove "..pname, "SAY", nil, nil, InviteIsActive)
                     LichborneOutput("|cffC69B3APBM:|r Removing "..GetClassHex(pname)..pname.."|r before re-invite...",1,0.85,0)
                     waitTime = 0
                     reinviteSubPhase = "add"
+                    WaitForCommands("reinvite")
 
                 elseif reinviteSubPhase == "add" then
                     if waitTime < 1.0 then return end
-                    local pname = names[inviteIndex]
+                    local pname = retryNames[inviteIndex]
                     PBM.SendChatMessage(".playerbots bot add "..pname, "SAY", nil, nil, InviteIsActive)
                     LichborneOutput("|cffC69B3APBM:|r Re-inviting "..GetClassHex(pname)..pname.."|r...",1,0.85,0)
                     inviteIndex = inviteIndex + 1
@@ -2067,7 +2075,17 @@ function PBM.BuildRaidFrame(parent, fl)
         PBM.SendChatMessage(".playerbots bot remove *", "SAY", nil, nil, InviteIsActive)
         local invIdx = 1
         local waited = 0
-        local grpPhase = "logout_wait"
+        local grpPhase = "queue_wait"
+        local retryNames
+        local function WaitForCommands(nextPhase)
+            grpPhase = "queue_wait"
+            PBM.AfterChatQueue(function()
+                if not InviteIsActive() then return end
+                waited = 0
+                grpPhase = nextPhase
+            end)
+        end
+        WaitForCommands("logout_wait")
         local grpReinviteSubPhase = "remove"
         local grpVerifyDelay = 3
         PBM.UpdateInviteButtons()
@@ -2088,10 +2106,7 @@ function PBM.BuildRaidFrame(parent, fl)
                 if LichborneAddStatus then LichborneAddStatus:SetText("|cffff9900Inviting "..#names.." players...") end
             elseif grpPhase == "batch_invite" then
                 QueueBotAdds(names, GetClassHex, "Inviting", InviteIsActive)
-                grpPhase = "verify_wait"
-                grpVerifyDelay = 2 + math.ceil(#names / 5)
-                waited = 0
-                LichborneOutput("|cffC69B3APBM:|r Initial invites sent, verifying...",1,0.85,0)
+                WaitForCommands("verify_wait")
             elseif grpPhase == "verify_wait" then
                 if waited < grpVerifyDelay then return end
                 -- Detect whether WoW put us in a raid or a party and use the right API
@@ -2116,9 +2131,15 @@ function PBM.BuildRaidFrame(parent, fl)
                         missing[#missing+1] = pname
                     end
                 end
-                if #missing == 0 then
-                    LichborneOutput("|cffC69B3APBM:|r |cff44ff44All "..#names.." players confirmed in group!|r",1,0.85,0)
-                    if LichborneAddStatus then LichborneAddStatus:SetText("|cff44ff44All "..#names.." players confirmed in group.|r") end
+                if #missing == 0 or retryNames then
+                    local result
+                    if #missing == 0 then
+                        result = "|cff44ff44All "..#names.." players confirmed in group.|r"
+                    else
+                        result = "|cffff9900Not in group: "..table.concat(missing, ", ").."|r"
+                    end
+                    LichborneOutput("|cffC69B3APBM:|r "..result,1,0.85,0)
+                    if LichborneAddStatus then LichborneAddStatus:SetText(result) end
                     grpFrame:SetScript("OnUpdate",nil)
                     PBM.State.activeInviteFrame = nil
                     PBM.SetInviteActive(false)
@@ -2126,29 +2147,25 @@ function PBM.BuildRaidFrame(parent, fl)
                     return
                 end
                 LichborneOutput("|cffC69B3APBM:|r |cffff9900"..#missing.." missed — re-inviting...|r",1,0.85,0)
-                names = missing
+                retryNames = missing
                 invIdx = 1
                 grpPhase = "reinvite"
                 waited = 0
             elseif grpPhase == "reinvite" then
                 if grpReinviteSubPhase == "remove" then
-                    if invIdx > #names then
-                        LichborneOutput("|cffC69B3APBM:|r |cff44ff44Re-invite pass complete.|r",1,0.85,0)
-                        if LichborneAddStatus then LichborneAddStatus:SetText("|cff44ff44Invite complete (re-invite pass done).|r") end
-                        grpFrame:SetScript("OnUpdate",nil)
-                        PBM.State.activeInviteFrame = nil
-                        PBM.SetInviteActive(false)
-                        PBM.UpdateInviteButtons()
+                    if invIdx > #retryNames then
+                        WaitForCommands("verify_wait")
                         return
                     end
-                    local pname = names[invIdx]
+                    local pname = retryNames[invIdx]
                     PBM.SendChatMessage(".playerbots bot remove "..pname, "SAY", nil, nil, InviteIsActive)
                     LichborneOutput("|cffC69B3APBM:|r Removing "..GetClassHex(pname)..pname.."|r before re-invite...",1,0.85,0)
                     waited = 0
                     grpReinviteSubPhase = "add"
+                    WaitForCommands("reinvite")
                 elseif grpReinviteSubPhase == "add" then
                     if waited < 1.0 then return end
-                    local pname = names[invIdx]
+                    local pname = retryNames[invIdx]
                     PBM.SendChatMessage(".playerbots bot add "..pname, "SAY", nil, nil, InviteIsActive)
                     LichborneOutput("|cffC69B3APBM:|r Re-inviting "..GetClassHex(pname)..pname.."|r...",1,0.85,0)
                     invIdx = invIdx + 1
