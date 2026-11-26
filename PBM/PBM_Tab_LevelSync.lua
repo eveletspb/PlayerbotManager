@@ -70,13 +70,7 @@ function PBM.BuildLevelSyncPanel(lsPanel, ctx)
             LichborneOutput("|cffC69B3APBM:|r Cannot send commands while in combat.")
             return
         end
-        local box = ChatFrame1EditBox
-        if not box:IsVisible() then
-            ChatFrame_OpenChat("", ChatFrame1)
-        end
-        box:SetText(".levelsync " .. cmd)
-        ChatEdit_SendText(box, false)
-        box:Hide()
+        PBM.SendChatMessage(".levelsync " .. cmd, "SAY")
     end
 
     PBM.LevelSyncAutoRefresh = function() lsSendCmd("status") end
