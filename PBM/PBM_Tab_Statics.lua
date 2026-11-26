@@ -159,68 +159,85 @@ function PBM.BuildStaticsPanel(panel)
     title:SetPoint("TOPLEFT", list, "TOPLEFT", 10, -8)
     title:SetText("|cffd4af37Saved Statics|r")
 
+    local scroll = CreateFrame("ScrollFrame", "PBMStaticsScrollFrame", list, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", list, "TOPLEFT", 8, -28)
+    scroll:SetSize(1016, 334)
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(1016, 334)
+    scroll:SetScrollChild(content)
+
+    local empty = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    empty:SetPoint("TOPLEFT", content, "TOPLEFT", 2, -8)
+    empty:SetText("|cff888888No statics yet. Click Create Static.|r")
+    local rows = {}
+
+    local function CreateStaticRow(index)
+        local row = CreateFrame("Frame", nil, content)
+        row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(index - 1) * 42)
+        row:SetSize(1016, 36)
+        row:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground", edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", tile=true, tileSize=8, edgeSize=6, insets={left=1,right=1,top=1,bottom=1}})
+        row:SetBackdropColor(index % 2 == 0 and 0.06 or 0.08, 0.09, 0.18, 1)
+        row:SetBackdropBorderColor(0.15, 0.22, 0.38, 0.8)
+
+        local label = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        label:SetPoint("LEFT", row, "LEFT", 10, 0)
+        label:SetWidth(466); label:SetJustifyH("LEFT")
+        row.label = label
+        local function ShowStaticDialog(dialog)
+            local static = PBM.GetStatics()[index]
+            if not static then return end
+            PBM.State.pendingStaticIndex = index
+            StaticPopup_Show(dialog, static.name or "Unnamed")
+        end
+        local function RowButton(text, x, color, callback)
+            return MakeStaticButton(row, text, x, 4, 100, callback, color)
+        end
+        RowButton("Edit", 494, {0.20,0.70,0.40}, function()
+            if not PBM.LoadStatic(index) then return end
+            if PBM.RefreshRaidSelectionUI then PBM.RefreshRaidSelectionUI() end
+            if PBM.RefreshRaidRows then PBM.RefreshRaidRows() end
+            if PBM.RefreshOverviewRows then PBM.RefreshOverviewRows() end
+
+            -- The static itself is a saved snapshot.  Editing is performed
+            -- in the normal Raid roster UI, then Save Static with the same
+            -- name updates this snapshot instead of creating a duplicate.
+            PBM.State.activeTab = "Raid"
+            if PBM.UpdateTabs then PBM.UpdateTabs() end
+            if PBM.RefreshRows then PBM.RefreshRows() end
+            DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static loaded for editing. Modify the Raid roster, then save it with the same name to update the static.")
+        end)
+        RowButton("Load", 598, {0.20,0.50,0.90}, function()
+            ShowStaticDialog("PBM_LOAD_STATIC_TAB")
+        end)
+        RowButton("Invite", 702, {0.78,0.30,0.05}, function()
+            ShowStaticDialog("PBM_INVITE_STATIC_TAB")
+        end)
+        RowButton("Rename", 806, {0.78,0.61,0.23}, function()
+            ShowStaticDialog("PBM_RENAME_STATIC_TAB")
+        end)
+        RowButton("Delete", 910, {0.80,0.15,0.15}, function()
+            ShowStaticDialog("PBM_DELETE_STATIC_TAB")
+        end)
+        return row
+    end
+
     function PBM.RefreshStaticsPanel()
-        for _, child in ipairs(panel.staticRows or {}) do child:Hide() end
-        panel.staticRows = {}
         local statics = PBM.GetStatics()
-        if #statics == 0 then
-            local empty = list:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-            empty:SetPoint("TOPLEFT", list, "TOPLEFT", 10, -36)
-            empty:SetText("|cff888888No statics yet. Click Create Static.|r")
-            panel.staticRows[1] = empty
-            return
-        end
-
+        if #statics == 0 then empty:Show() else empty:Hide() end
         for index, static in ipairs(statics) do
-            local row = CreateFrame("Frame", nil, list)
-            row:SetPoint("TOPLEFT", list, "TOPLEFT", 8, -28 - (index - 1) * 42)
-            row:SetSize(1042, 36)
-            row:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground", edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", tile=true, tileSize=8, edgeSize=6, insets={left=1,right=1,top=1,bottom=1}})
-            row:SetBackdropColor(index % 2 == 0 and 0.06 or 0.08, 0.09, 0.18, 1)
-            row:SetBackdropBorderColor(0.15, 0.22, 0.38, 0.8)
-
-            local label = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-            label:SetPoint("LEFT", row, "LEFT", 10, 0)
-            label:SetWidth(490); label:SetJustifyH("LEFT")
-            label:SetText("|cffd4af37"..(static.name or "Unnamed").."|r  |cffaaaaaa"..
-                (static.raidName or "N/A").."  ("..tostring(static.raidSize or 0)..")|r")
-
-            local captured = index
-            local function RowButton(text, x, color, callback)
-                return MakeStaticButton(row, text, x, 4, 100, callback, color)
+            local row = rows[index]
+            if not row then
+                row = CreateStaticRow(index)
+                rows[index] = row
             end
-            RowButton("Edit", 520, {0.20,0.70,0.40}, function()
-                if not PBM.LoadStatic(captured) then return end
-                if PBM.RefreshRaidSelectionUI then PBM.RefreshRaidSelectionUI() end
-                if PBM.RefreshRaidRows then PBM.RefreshRaidRows() end
-                if PBM.RefreshOverviewRows then PBM.RefreshOverviewRows() end
-
-                -- The static itself is a saved snapshot.  Editing is performed
-                -- in the normal Raid roster UI, then Save Static with the same
-                -- name updates this snapshot instead of creating a duplicate.
-                PBM.State.activeTab = "Raid"
-                if PBM.UpdateTabs then PBM.UpdateTabs() end
-                if PBM.RefreshRows then PBM.RefreshRows() end
-                DEFAULT_CHAT_FRAME:AddMessage("|cff7799ffPBM:|r Static loaded for editing. Modify the Raid roster, then save it with the same name to update the static.")
-            end)
-            RowButton("Load", 624, {0.20,0.50,0.90}, function()
-                PBM.State.pendingStaticIndex = captured
-                StaticPopup_Show("PBM_LOAD_STATIC_TAB", static.name or "Unnamed")
-            end)
-            RowButton("Invite", 728, {0.78,0.30,0.05}, function()
-                PBM.State.pendingStaticIndex = captured
-                StaticPopup_Show("PBM_INVITE_STATIC_TAB", static.name or "Unnamed")
-            end)
-            RowButton("Rename", 832, {0.78,0.61,0.23}, function()
-                PBM.State.pendingStaticIndex = captured
-                StaticPopup_Show("PBM_RENAME_STATIC_TAB", static.name or "Unnamed")
-            end)
-            RowButton("Delete", 936, {0.80,0.15,0.15}, function()
-                PBM.State.pendingStaticIndex = captured
-                StaticPopup_Show("PBM_DELETE_STATIC_TAB", static.name or "Unnamed")
-            end)
-            panel.staticRows[#panel.staticRows + 1] = row
+            row.label:SetText("|cffd4af37"..(static.name or "Unnamed").."|r  |cffaaaaaa"..
+                (static.raidName or "N/A").."  ("..tostring(static.raidSize or 0)..")|r")
+            row:Show()
         end
+        for index = #statics + 1, #rows do rows[index]:Hide() end
+        local height = math.max(334, #statics * 42)
+        content:SetHeight(height)
+        scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), height - 334))
     end
 
     PBM.RefreshStaticsPanel()
