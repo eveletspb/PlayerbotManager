@@ -60,6 +60,7 @@ function PBM.LB_ExportDB()
             name   = row.name   or "",
             spec   = row.spec   or "",
             role   = row.role   or "",
+            level  = row.level,
             gs     = row.gs     or 0,
             realGs = row.realGs or 0,
         }
@@ -71,6 +72,7 @@ function PBM.LB_ExportDB()
         allGroups   = db.allGroups,
         allGroup    = db.allGroup,
         notes       = db.notes,
+        botNotes    = db.botNotes,
     }
     return PBM.EXPORT_PREFIX .. LB_SerializeValue(payload)
 end
@@ -227,6 +229,20 @@ local function LB_ValidImport(data)
         end
     end
     if data.allGroup ~= nil and data.allGroup ~= "A" and data.allGroup ~= "B" and data.allGroup ~= "C" then return false end
+    if data.botNotes ~= nil then
+        if type(data.botNotes) ~= "table" then return false end
+        for name, entry in pairs(data.botNotes) do
+            if type(name) ~= "string" or name == "" or type(entry) ~= "table" or
+                type(entry.notes) ~= "string" or type(entry.roles) ~= "table" then return false end
+            local count = 0
+            for index, role in pairs(entry.roles) do
+                if type(index) ~= "number" or index < 1 or index % 1 ~= 0 or
+                    type(role) ~= "string" then return false end
+                count = count + 1
+            end
+            for index = 1, count do if entry.roles[index] == nil then return false end end
+        end
+    end
     return data.notes == nil or type(data.notes) == "string"
 end
 

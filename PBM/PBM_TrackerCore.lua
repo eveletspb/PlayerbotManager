@@ -2037,6 +2037,7 @@ local function OnFirstShow()
         if pendingImport.allGroups   then db.allGroups   = pendingImport.allGroups   end
         if pendingImport.allGroup    then db.allGroup    = pendingImport.allGroup    end
         if pendingImport.notes       then db.notes       = pendingImport.notes       end
+        if pendingImport.botNotes    then db.botNotes    = pendingImport.botNotes    end
         -- raidName/raidSize/raidGroup/raidTier are intentionally NOT imported;
         -- they are per-account settings and should not be overwritten by Account A's config.
         -- botNotes (roles/notes) ARE imported — they describe character behavior, not account config.
