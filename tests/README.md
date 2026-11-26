@@ -11,6 +11,7 @@ luajit tests/group_test.lua
 luajit tests/card_test.lua
 luajit tests/raid_attunements_test.lua
 luajit tests/statics_test.lua
+luajit tests/inventory_items_test.lua
 ```
 
 These tests run the addon logic with fake WoW APIs. The windows test loads the

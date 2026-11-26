@@ -74,7 +74,7 @@ local line='|cffffffff|Hitem:100:0|h[Item]|h|r'
 PBM.OpenInventoryWindow('A'); local a=token()
 receive('INV_BEGIN','A~'..a); receive('INV_ITEM','A~'..a..'~'..line); receive('INV_END','A~'..a)
 assert(PBM.inventory.name=='A' and PBM.inventory:IsVisible())
-local oldButton=items.buttons.Item
+local oldButton=items.buttons[1]
 PBM.inventory.action='destroy'
 PBM.OpenInventoryWindow('B'); local b=token()
 local count=#sent
@@ -84,7 +84,7 @@ receive('INV_BEGIN','B~'..b); receive('INV_ITEM','B~'..b..'~'..line); receive('I
 assert(PBM.inventory.name=='B' and not PBM.inventory.loading)
 oldButton.doLeft(oldButton)
 assert(#sent==count)
-local currentButton=items.buttons.Item
+local currentButton=items.buttons[1]
 currentButton.doLeft(currentButton)
 assert(sent[#sent].target=='B' and sent[#sent].msg:find('destroy',1,true))
 -- Refresh uses the same public request path; there is no MultiBar in PBM.
@@ -250,8 +250,9 @@ local popupId,popupData
 function StaticPopup_Show(id,_,_,data) popupId,popupData=id,data end
 function GetItemInfo() return 'Epic','|cffa335ee|Hitem:100:0|h[Epic]|h|r',4 end
 PBM.inventory.name='LegacyB'; PBM.inventory.loading=false; PBM.inventory.action='destroy'
-PBM.addItem(items,'|cffa335ee|Hitem:100:0|h[Epic]|h|r')
-items.buttons.Epic.doLeft(items.buttons.Epic)
+PBM.addItem(items,'|cffa335ee|Hitem:101:0|h[Epic]|h|r')
+local epicButton=items.buttons[items.index]
+epicButton.doLeft(epicButton)
 assert(popupId=='PBM_CONFIRM_DESTROY' and StaticPopupDialogs.MULTIBOT_CONFIRM_DESTROY)
 StaticPopupDialogs[popupId].OnAccept(nil,popupData)
 assert(sent[#sent].target=='LegacyB' and sent[#sent].msg:find('destroy',1,true))

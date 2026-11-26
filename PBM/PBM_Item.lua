@@ -1,20 +1,30 @@
+local function CanChangeInventoryItem(frame, item)
+    for _, button in pairs(frame.buttons) do
+        if button.item and button.item ~= item and button.item.id == item.id then
+            LichborneOutput("Inventory action cancelled: multiple copies of "..item.name..".", 1, 0.5, 0.5)
+            return false
+        end
+    end
+    return true
+end
+
 PBM.addItem = function(pFrame, pInfo)
-    if type(pInfo) ~= "string" or not pInfo:match("^|c%x%x%x%x%x%x%x%x|Hitem:%d+:[^|]*|h%[.-%]|h|r") then return end
+    local tLink = type(pInfo) == "string" and pInfo:match("^(|c%x%x%x%x%x%x%x%x|Hitem:%d+:[^|]*|h%[.-%]|h|r)")
+    if not tLink then return end
+    local tID = tLink:match("|Hitem:(%d+):")
     local botName = PBM.inventory.name
 	local tInfo = PBM.doSplit(pInfo, "|")
-	local tID = PBM.doSplit(tInfo[3], ":")[2]
 
 	local tIcon = GetItemIcon(tID)
-	local tName, tLink, tRare = GetItemInfo(tID)
+	local tName, _, tRare = GetItemInfo(tID)
 
 	local tX = (pFrame.index%8) * 38
 	local tY = math.floor(pFrame.index/8) * -37.1
 
 	if(tName == nil) then tName = string.sub(tInfo[4], 3, string.len(tInfo[4]) - 1) end
-	if(tLink == nil) then tLink = "|" .. tInfo[2] .. "|" .. tInfo[3] .. "|" .. tInfo[4] .. "|h|r" end
 	if(tRare == nil) then tRare = 4 end -- for Security
 
-	local tButton = pFrame.addButton(tName, tX, tY, tIcon, tLink)
+	local tButton = pFrame.addButton(pFrame.index + 1, tX, tY, tIcon, tLink)
 	pFrame.catButton("Catecher", 270, -490, 308, 524)
 
 	tButton.item = {}
@@ -31,6 +41,7 @@ PBM.addItem = function(pFrame, pInfo)
     tButton.doLeft = function(pButton)
         if PBM.inventory.loading or PBM.inventory.name ~= botName then return end
         local tAction = PBM.inventory.action
+        if (tAction == "s" or tAction == "destroy") and not CanChangeInventoryItem(pFrame, pButton.item) then return end
 
 		if(tAction == "") then
 			PBM.SendChatMessage(PBM.info.action, "SAY")
@@ -93,14 +104,17 @@ PBM.addItem = function(pFrame, pInfo)
 						whileDead = 1,
 						hideOnEscape = 1,
 						OnAccept = function(self, data)
-							if not data or not data.button then return end
+							if not data or PBM.inventory.loading or PBM.inventory.name ~= data.tName or
+                                PBM.inventory.request ~= data.request or data.button.item ~= data.item or
+                                not CanChangeInventoryItem(data.frame, data.item) then return end
 							PBM.SendChatMessage("destroy" .. " " .. data.tip, "WHISPER", nil, data.tName)
 							data.button:Hide()
 						end,
 					}
 				end
 				--local data = { button = pButton, tName = tName }
-				local data = { button = pButton, tName = botName, tip = pButton.tip }
+				local data = { button = pButton, tName = botName, tip = pButton.tip,
+                    request = PBM.inventory.request, item = pButton.item, frame = pFrame }
 				StaticPopup_Show("PBM_CONFIRM_DESTROY", pButton.item.link, nil, data)
 				return
 			end
