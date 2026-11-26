@@ -572,9 +572,7 @@ function PBM.ApplyBridgeGear(botName, gear)
         end
     end
 
-    if PBM.RefreshRows then PBM.RefreshRows() end
-    if PBM.RefreshOverviewRows then PBM.RefreshOverviewRows() end
-    if PBM.RefreshRaidRows then PBM.RefreshRaidRows() end
+    if not PBM.State.LichborneGroupScanActive and PBM.RefreshRows then PBM.RefreshRows() end
     return true
 end
 

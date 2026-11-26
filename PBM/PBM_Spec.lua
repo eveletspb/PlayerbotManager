@@ -116,9 +116,7 @@ local function CalcSpec()
 
     ClearInspectPlayer()
     PBM.State.LichborneSpecTarget = nil
-    PBM.RefreshRows()
-    if PBM.State.overviewRowFrames and #PBM.State.overviewRowFrames > 0 then PBM.RefreshOverviewRows() end
-    if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end
+    if not PBM.State.LichborneGroupScanActive then PBM.RefreshRows() end
 end
 
 local specFrame = CreateFrame("Frame")

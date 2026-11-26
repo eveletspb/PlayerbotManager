@@ -93,6 +93,18 @@ receive('GEAR_ERROR','Bot~'..token..'~FORBIDDEN')
 receive('GEAR_END','Bot~'..token)
 assert(not applied and reason=='FORBIDDEN' and row.gs==200 and row.realGs==4000)
 
+local redraws=0
+PBM.RefreshRows=function() redraws=redraws+1 end
+PBM.RefreshOverviewRows=function() error('hidden overview refreshed') end
+PBM.RefreshRaidRows=function() error('hidden raid refreshed') end
+PBM.State.LichborneGroupScanActive=true
+for score=1,40 do
+    assert(PBM.ApplyBridgeGear('Bot',{score=score,realGs=4000}))
+end
+assert(redraws==0 and row.gs==40 and rosterSlot.gs==40)
+PBM.State.LichborneGroupScanActive=false
+assert(PBM.ApplyBridgeGear('Bot',{score=41,realGs=4000}) and redraws==1)
+
 for _, request in ipairs({'DETAIL','STATS'}) do
     local name='unexpected'
     local callback=function(value) name=value end

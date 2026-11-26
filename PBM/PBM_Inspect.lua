@@ -144,25 +144,6 @@ local function CalcGS()
         LichborneTrackerDB.rows[di].ilvlLink = itemLinks
     end
 
-    for _, row in ipairs(PBM.State.rowFrames) do
-        if count > 0 and row.dbIndex == di and row.gearBoxes then
-            for g = 1, 17 do
-                local v = LichborneTrackerDB.rows[di].ilvl[g] or 0
-                if row.gearBoxes[g] then
-                    local link2 = LichborneTrackerDB.rows[di].ilvlLink and LichborneTrackerDB.rows[di].ilvlLink[g]
-                    row.gearBoxes[g]:SetText((v > 0 or (link2 and link2 ~= "")) and tostring(v) or "")
-                    local qc2 = PBM.GetItemQualityColor(link2)
-                    if qc2 then
-                        row.gearBoxes[g]:SetTextColor(qc2.r, qc2.g, qc2.b)
-                    else
-                        row.gearBoxes[g]:SetTextColor(1, 1, 1)
-                    end
-                end
-            end
-            break
-        end
-    end
-
     if count > 0 then
         local rowData = LichborneTrackerDB.rows[di]
         local ilvl = math.floor(total / count)
@@ -176,14 +157,6 @@ local function CalcGS()
         if realGs > 0 then rowData.realGs = realGs end
         realGs = rowData.realGs or 0
         PBM.DBG("DB write |cffffff88"..rowName.."|r: iLvl "..(prevGS~=ilvl and "|cffff9900"..prevGS.."|r->".."|cff44ff44"..ilvl.."|r" or "|cffaaaaaa"..ilvl.."|r").." GS "..(prevRealGS~=realGs and "|cffff9900"..prevRealGS.."|r->".."|cff44ff44"..realGs.."|r" or "|cffaaaaaa"..realGs.."|r"))
-
-        for _, row in ipairs(PBM.State.rowFrames) do
-            if row.dbIndex == di then
-                if row.gsBox then row.gsBox:SetText(tostring(ilvl)) end
-                if row.realGsBox then row.realGsBox:SetText(realGs > 0 and tostring(realGs) or "") end
-                break
-            end
-        end
 
         local updatedName = rowData.name
         if updatedName and updatedName ~= "" and LichborneTrackerDB.raidRosters then
@@ -225,9 +198,7 @@ local function CalcGS()
             end
         end
 
-        PBM.RefreshRows()
-        if PBM.State.overviewRowFrames and #PBM.State.overviewRowFrames > 0 then PBM.RefreshOverviewRows() end
-        if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end
+        if not PBM.State.LichborneGroupScanActive then PBM.RefreshRows() end
         PBM.State.LichborneInspectRetries = 0
         PBM.State.LichborneShoulderRetries = 0
     else

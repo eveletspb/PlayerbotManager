@@ -88,7 +88,8 @@ local inspectCalls, applied=0,0
 function InspectUnit() inspectCalls=inspectCalls+1 end
 PBM.DBG=function() end
 dofile('PBM/PBM_Commands.lua')
-PBM.RefreshRows=function() end
+local scanRedraws=0
+PBM.RefreshRows=function() scanRedraws=scanRedraws+1 end
 PBM.BridgeHasCapability=function() return true end
 PBM.ApplyBridgeGear=function() applied=applied+1; return true end
 local gearReply, gearTimeout, specReply, specTimeout
@@ -134,7 +135,9 @@ local function beginGear()
     return frame
 end
 local gearFrame=beginGear()
+local redrawsBeforeStop=scanRedraws
 stopScan.scripts.OnClick()
+assert(scanRedraws==redrawsBeforeStop+1)
 before=inspectCalls
 gearReply({realGs=4000}); gearTimeout()
 assert(applied==0 and inspectCalls==before and PBM.State.LichborneInspectTarget==nil)

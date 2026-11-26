@@ -890,7 +890,8 @@ local function OnFirstShow()
                     LichborneAddStatus:SetText("|cff44ff44Group Specialization update complete!|r")
                     LichborneOutput("|cffC69B3APBM:|r |cff44ff44Group Specialization update complete.|r", 1, 0.85, 0)
                     PBM.DBG("|cff44ff44Group Spec scan done|r - "..#units.." units, elapsed |cffffff88"..string.format("%.1f", GetTime()-scanSpecStartTime).."s|r")
-                    PBM.RefreshRows(); if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end; return
+                    PBM.RefreshRows()
+                    return
                 end
                 local unit = units[idx]; if not UnitExists(unit) then idx=idx+1; return end
                 local targetName = UnitName(unit)
@@ -917,6 +918,7 @@ local function OnFirstShow()
     end)
     stopInspectBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     stopInspectBtn:SetScript("OnClick", function()
+        local refreshScanResults = PBM.State.LichborneGroupScanActive
         if activeInspectFrame then
             activeInspectFrame:SetScript("OnUpdate", nil)
             activeInspectFrame = nil
@@ -926,6 +928,7 @@ local function OnFirstShow()
         PBM.State.LichborneGroupScanActive = false
         PBM.State.ipQueryActive = false
         SetScanActive(false)
+        if refreshScanResults then PBM.RefreshRows() end
         LichborneAddStatus:SetText("|cffff4444Scan stopped.|r")
         LichborneOutput("|cffC69B3APBM:|r |cffff4444Scan stopped.|r", 1, 0.85, 0)
     end)
@@ -1150,7 +1153,7 @@ local function OnFirstShow()
                             LichborneAddStatus:SetText("|cff44ff44Full Group Scan complete!|r")
                             LichborneOutput("|cffC69B3APBM:|r |cff44ff44Full Group Scan complete.|r", 1, 0.85, 0)
                             PBM.DBG("|cff44ff44FullScan complete|r — total elapsed |cffffff88"..string.format("%.1f", GetTime()-scanStartTime).."s|r")
-                            PBM.RefreshRows(); if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end
+                            PBM.RefreshRows()
                             -- Trigger group strategies query for all scanned members
                             local strCount = 0
                             for _, unit in ipairs(units) do
@@ -1205,9 +1208,6 @@ local function OnFirstShow()
                                 if activeInspectFrame ~= sFrame then return end
                                 bridgeSpecPending = false
                                 if detailName and ApplyBridgeSpec(targetName, firstTree, secondTree, thirdTree) then
-                                    PBM.RefreshRows()
-                                    if PBM.State.overviewRowFrames and #PBM.State.overviewRowFrames > 0 then PBM.RefreshOverviewRows() end
-                                    if PBM.State.raidRowFrames and #PBM.State.raidRowFrames > 0 then PBM.RefreshRaidRows() end
                                     LichborneOutput("|cffC69B3APBM:|r Specialization |cff44ff44bridge succeeded|r: "..targetName..".", 1, 0.85, 0)
                                     sIdx = sIdx + 1
                                     sInspecting = false

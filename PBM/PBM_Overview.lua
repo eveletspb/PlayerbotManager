@@ -649,6 +649,7 @@ function PBM.BuildOverviewFrame(parent, fl)
         else
             if PBM.State.groupViewFrame then PBM.State.groupViewFrame:Hide() end
             PBM.State.LichborneOverviewFrame:Show()
+            PBM.RefreshOverviewRows()
         end
     end
     PBM.State.ToggleGroupView = ToggleGroupView

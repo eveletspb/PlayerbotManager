@@ -684,11 +684,15 @@ function PBM.RefreshRows()
         return
     end
     if PBM.State.activeTab == "Overview" then
-        if LichborneOverviewFrame then PBM.RefreshOverviewRows() end
+        if PBM.State.groupViewActive and PBM.State.groupViewFrame then
+            PBM.RebuildGroupViewRoster()
+        elseif LichborneOverviewFrame then
+            PBM.RefreshOverviewRows()
+        end
         return
     end
     if PBM.State.activeTab == "Group" then
-        PBM.OpenGroupView()
+        PBM.RebuildGroupViewRoster()
         return
     end
     if PBM.State.activeTab == "Statics" then
