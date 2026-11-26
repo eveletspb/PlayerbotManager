@@ -50,4 +50,13 @@ assert(PBM.ActionToTargetOrGroup('reset')==false)
 assert(#sent==before and #notices==2)
 assert(not PBM.isMember('Bot') and PBM.toUnit('Bot')==nil)
 assert(PBM.isMember('Owner') and PBM.toUnit('Owner')=='player')
+function UnitGUID(unit) return UnitName(unit) end
+target='Bot'
+local inspectGUID=UnitGUID('target')
+assert(PBM.ResolveInspectUnit('target','Bot',inspectGUID)=='target')
+target='Other'
+assert(PBM.ResolveInspectUnit('target','Bot',inspectGUID)==nil)
+raid=2
+assert(PBM.ResolveInspectUnit('raid2','Bot',inspectGUID)=='raid1')
+assert(PBM.ResolveInspectUnit('target','Other',nil)==nil)
 print('PASS group: small/full raid and party routing, target priority, membership and solo feedback')

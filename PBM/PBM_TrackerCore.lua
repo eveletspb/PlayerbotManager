@@ -570,6 +570,7 @@ local function OnFirstShow()
         LichborneAddStatus:SetText("Updating Gear for "..hex..targetName.."|r...")
         LichborneOutput("|cffC69B3APBM:|r Updating Gear for "..hex..targetName.."|r...", 1, 0.85, 0)
         local gsDi = foundDi
+        local targetGUID = UnitGUID("target")
 
         local function StartLegacyGearScan()
         -- Lock all buttons (including Stop and invite) during single-target scan
@@ -599,10 +600,17 @@ local function OnFirstShow()
             if gsPhase == "delay" then
                 if gsElapsed < 0.5 then return end
                 gsElapsed = 0
-                PBM.State.LichborneInspectTarget = gsDi; PBM.State.LichborneInspectUnit = "target"
-                PBM.DBG("InspectUnit(target) -> GS scan for |cffffff88"..((LichborneTrackerDB.rows[gsDi] and LichborneTrackerDB.rows[gsDi].name) or "?").."|r UnitExists=|cffffff88"..tostring(UnitExists("target")).."|r InRange=|cffffff88"..tostring(CheckInteractDistance("target",1)).."|r")
-                InspectUnit("target"); PBM.State.LichborneInspectGUID = UnitGUID("target"); if not PBM.State.LichborneInspectGUID then PBM.DBG("|cffff4444[NIL]|r UnitGUID(target)=nil â€” GUID capture skipped") end; PBM.State.inspectWait = 0
                 gsPhase = "wait"
+                local unit = PBM.ResolveInspectUnit("target", targetName, targetGUID)
+                if not unit then
+                    LichborneAddStatus:SetText("Gear scan cancelled: "..targetName.." is no longer available.")
+                    return
+                end
+                PBM.State.LichborneInspectTarget = gsDi
+                PBM.State.LichborneInspectUnit = unit
+                PBM.State.LichborneInspectGUID = targetGUID
+                PBM.State.inspectWait = 0
+                InspectUnit(unit)
             elseif gsPhase == "wait" then
                 -- CalcGS sets PBM.State.LichborneInspectTarget = nil when done
                 if PBM.State.LichborneInspectTarget == nil then
@@ -689,6 +697,7 @@ local function OnFirstShow()
         LichborneAddStatus:SetText("Adding Specialization for "..hex..targetName.."|r...")
         LichborneOutput("|cffC69B3APBM:|r Adding Specialization for "..hex..targetName.."|r...", 1, 0.85, 0)
         local spDi = foundDi
+        local targetGUID = UnitGUID("target")
         -- Lock all buttons (including Stop and invite) during single-target scan
         SetScanActive(true)
         local stopBtn = _G["LichborneStopInspectBtn"]
@@ -716,10 +725,17 @@ local function OnFirstShow()
             if spPhase == "delay" then
                 if spElapsed < 0.5 then return end
                 spElapsed = 0
-                PBM.State.LichborneSpecTarget = spDi; PBM.State.LichborneInspectUnit = "target"
-                PBM.DBG("InspectUnit(target) -> Spec scan for |cffffff88"..((LichborneTrackerDB.rows[spDi] and LichborneTrackerDB.rows[spDi].name) or "?").."|r UnitExists=|cffffff88"..tostring(UnitExists("target")).."|r InRange=|cffffff88"..tostring(CheckInteractDistance("target",1)).."|r")
-                InspectUnit("target"); PBM.State.LichborneSpecGUID = UnitGUID("target"); if not PBM.State.LichborneSpecGUID then PBM.DBG("|cffff4444[NIL]|r UnitGUID(target)=nil â€” GUID capture skipped") end; PBM.State.specWait = 0
                 spPhase = "wait"
+                local unit = PBM.ResolveInspectUnit("target", targetName, targetGUID)
+                if not unit then
+                    LichborneAddStatus:SetText("Specialization scan cancelled: "..targetName.." is no longer available.")
+                    return
+                end
+                PBM.State.LichborneSpecTarget = spDi
+                PBM.State.LichborneInspectUnit = unit
+                PBM.State.LichborneSpecGUID = targetGUID
+                PBM.State.specWait = 0
+                InspectUnit(unit)
             elseif spPhase == "wait" then
                 -- CalcSpec sets PBM.State.LichborneSpecTarget = nil when done
                 if PBM.State.LichborneSpecTarget == nil then
@@ -1165,16 +1181,22 @@ local function OnFirstShow()
                         LichborneAddStatus:SetText("Specialization scan |cffffff88"..tostring(targetName).."|r... ("..sIdx.."/"..#units..")")
                         sInspecting = true; sElapsed = 0
 
+                        local targetGUID = UnitGUID(unit)
                         local function StartLegacySpec()
                             if activeInspectFrame ~= sFrame then return end
                             bridgeSpecPending = false
-                            PBM.State.LichborneSpecTarget = foundDi
-                            PBM.State.LichborneInspectUnit = unit
-                            PBM.DBG("InspectUnit("..unit..") -> FullScan Spec fallback for |cffffff88"..tostring(targetName).."|r ("..sIdx.."/"..#units..")")
-                            InspectUnit(unit)
-                            PBM.State.LichborneSpecGUID = UnitGUID(unit)
-                            PBM.State.specWait = 0
+                            local inspectUnit = PBM.ResolveInspectUnit(unit, targetName, targetGUID)
                             sIdx = sIdx + 1
+                            if not inspectUnit then
+                                sInspecting = false
+                                LichborneOutput("Specialization scan skipped: "..targetName.." is no longer available.", 1, 0.5, 0.5)
+                                return
+                            end
+                            PBM.State.LichborneSpecTarget = foundDi
+                            PBM.State.LichborneInspectUnit = inspectUnit
+                            PBM.State.LichborneSpecGUID = targetGUID
+                            PBM.State.specWait = 0
+                            InspectUnit(inspectUnit)
                         end
 
                         if bridgeSpecActive and not UnitIsUnit(unit, "player") then
@@ -1221,14 +1243,21 @@ local function OnFirstShow()
                     idx = idx + 1; return
                 end
                 if bridgeGearActive and not UnitIsUnit(unit, "player") then
+                    local targetGUID = UnitGUID(unit)
                     local function StartLegacyGearForUnit()
                         if activeInspectFrame ~= gFrame then return end
                         bridgeGearPending = false
+                        local inspectUnit = PBM.ResolveInspectUnit(unit, targetName, targetGUID)
+                        if not inspectUnit then
+                            inspecting = false
+                            LichborneOutput("Gear scan skipped: "..targetName.." is no longer available.", 1, 0.5, 0.5)
+                            return
+                        end
                         PBM.State.LichborneInspectTarget = foundDi
-                        PBM.State.LichborneInspectUnit = unit
-                        PBM.State.LichborneInspectGUID = UnitGUID(unit)
+                        PBM.State.LichborneInspectUnit = inspectUnit
+                        PBM.State.LichborneInspectGUID = targetGUID
                         PBM.State.inspectWait = 0
-                        InspectUnit(unit)
+                        InspectUnit(inspectUnit)
                         inspecting = true
                         elapsed = 0
                     end

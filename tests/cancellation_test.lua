@@ -74,11 +74,13 @@ MakeTrackerBtn=MakeSimpleBtn
 function UnitExists() return true end
 function UnitIsPlayer() return true end
 function UnitIsUnit(unit,other) return unit==other end
-function UnitGUID(unit) return unit end
+local targetGUID='target'
+function UnitGUID(unit) return unit=='target' and targetGUID or unit end
 function CheckInteractDistance() return true end
 local inspectCalls, applied=0,0
 function InspectUnit() inspectCalls=inspectCalls+1 end
 PBM.DBG=function() end
+dofile('PBM/PBM_Commands.lua')
 PBM.RefreshRows=function() end
 PBM.BridgeHasCapability=function() return true end
 PBM.ApplyBridgeGear=function() applied=applied+1; return true end
@@ -101,6 +103,14 @@ for i=frameCount+1,#frames do
     if frames[i].scripts.OnUpdate then frames[i].scripts.OnUpdate(frames[i],0.5) end
 end
 assert(applied==1 and inspectCalls==before)
+gsBtn.scripts.OnClick()
+targetGUID='different character'
+gearTimeout()
+local targetFrame=frames[#frames]
+targetFrame.scripts.OnUpdate(targetFrame,0.5)
+assert(inspectCalls==before and PBM.State.LichborneInspectTarget==nil)
+targetFrame.scripts.OnUpdate(targetFrame,0.1)
+targetGUID='target'
 applied=0
 local stop=section(tracker,'    local stopInspectBtn =','    -- Row y=10:')
 local scan=section(tracker,'    local maintBtn =','    local loginBtn')

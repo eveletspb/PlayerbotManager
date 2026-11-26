@@ -135,6 +135,13 @@ function PBM.NameToUnit(name)
     return nil
 end
 
+function PBM.ResolveInspectUnit(unit, name, guid)
+    if not guid then return nil end
+    if UnitGUID(unit) == guid then return unit end
+    local groupUnit = PBM.NameToUnit(name)
+    if groupUnit and UnitGUID(groupUnit) == guid then return groupUnit end
+end
+
 -- Send a command prefixed with a role selector.
 -- role: "tank" | "healer" | "dps" | "melee" | "ranged" | "groupN"
 function PBM.SendToRole(role, cmd)
