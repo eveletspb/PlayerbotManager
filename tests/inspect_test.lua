@@ -13,6 +13,8 @@ function UnitIsUnit(a,b) return UnitName(a)==UnitName(b) end
 function UnitExists() return true end
 function GetTime() return 100 end
 function ClearInspectPlayer() end
+local inspectCalls=0
+function InspectUnit() inspectCalls=inspectCalls+1 end
 function LichborneOutput() end
 function GetActiveTalentGroup() return 1 end
 function GetNumTalents() return 0 end
@@ -21,7 +23,8 @@ function GetTalentTabInfo(tab,inspect)
     inspectFlag=inspect
     return 'Tree',nil,(tab==(inspect and 3 or 2) and 71 or 0)
 end
-function GetInventoryItemLink(_,slot) return 'item:'..slot end
+local gearAvailable=true
+function GetInventoryItemLink(_,slot) if gearAvailable then return 'item:'..slot end end
 function GetItemInfo(link) return 'Item',link,4,200,nil,nil,nil,nil,'INVTYPE_HEAD' end
 PBM={State={rowFrames={},classScroll={}},DBG=function() end,RefreshRows=function() end,
     CalculateUnitGearScore=function() return 4000 end,GetItemQualityColor=function() end}
@@ -66,6 +69,30 @@ rows(); PBM.State.LichborneInspectUnit='player'; PBM.State.LichborneSpecGUID='Ow
 PBM.State.LichborneSpecTarget=4
 spec.scripts.OnUpdate(spec,3)
 assert(inspectFlag==false and LichborneTrackerDB.rows[4].spec=='Fire')
+-- An empty first response does not erase the previous gear snapshot.
+rows()
+PBM.State.LichborneInspectTarget=2; PBM.State.LichborneInspectGUID='A'
+local oldLinks={'item:old'}
+LichborneTrackerDB.rows[2].ilvlLink=oldLinks
+gearAvailable=false
+gear.scripts.OnEvent(gear,'INSPECT_READY','A')
+assert(PBM.State.LichborneInspectTarget==2 and inspectCalls==1)
+assert(LichborneTrackerDB.rows[2].ilvlLink==oldLinks)
+gearAvailable=true
+gear.scripts.OnEvent(gear,'INSPECT_READY','A')
+assert(LichborneTrackerDB.rows[2].ilvlLink[1]=='item:1')
+PBM.State.LichborneInspectTarget=2
+local lastLinks=LichborneTrackerDB.rows[2].ilvlLink
+gearAvailable=false
+gear.scripts.OnEvent(gear,'INSPECT_READY','A')
+gear.scripts.OnEvent(gear,'INSPECT_READY','A')
+assert(PBM.State.LichborneInspectTarget==nil and inspectCalls==2)
+assert(LichborneTrackerDB.rows[2].ilvlLink==lastLinks)
+gearAvailable=true
+function GetTalentTabInfo() return 'Tree',nil,0 end
+PBM.State.LichborneSpecTarget=2; PBM.State.LichborneSpecGUID='A'
+spec.scripts.OnEvent(spec,'INSPECT_READY','A')
+assert(PBM.State.LichborneSpecTarget==nil and LichborneTrackerDB.rows[2].spec=='')
 -- Bridge specialization callbacks must also resolve the name after a roster edit.
 local file=assert(io.open('PBM/PBM_TrackerCore.lua')); local source=file:read('*a'); file:close()
 local first=assert(source:find('    local function ApplyBridgeSpec',1,true))

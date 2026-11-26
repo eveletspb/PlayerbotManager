@@ -14,7 +14,7 @@ PBM.State.inspectWait = 0
 PBM.State.LichborneInspectGUID = nil
 PBM.State.LichborneGroupScanActive = false
 
-local INSPECT_MAX_RETRIES = 6
+local INSPECT_MAX_RETRIES = 1
 local CACHE_MAX_RETRIES = 6
 local SHOULDER_RETRY_MAX = 2
 
@@ -41,16 +41,7 @@ local function CalcGS()
     PBM.DBG("CalcGS start: |cffffff88"..rowName.."|r unit=|cffffff88"..inspUnit.."|r UnitExists=|cffffff88"..tostring(UnitExists(inspUnit)).."|r")
     local gsStartTime = GetTime()
 
-    if not LichborneTrackerDB.rows[di].ilvl then
-        local g = {}
-        for i = 1, 17 do g[i] = 0 end
-        LichborneTrackerDB.rows[di].ilvl = g
-    end
-    if not LichborneTrackerDB.rows[di].ilvlLink then
-        local lnk = {}
-        for i = 1, 17 do lnk[i] = "" end
-        LichborneTrackerDB.rows[di].ilvlLink = lnk
-    end
+    local itemLevels, itemLinks = {}, {}
 
     local anyPending = false
     local shoulderMissing = false
@@ -71,8 +62,8 @@ local function CalcGS()
         -- slot 17 = OH; if MH is 2H, WoW mirrors the same link into slot 17 — blank it out
         -- Exception: Warriors are NOT mirrored by AzerothCore, so Fury/Titan's Grip OH must be kept
         if slot == 17 and mhIs2H and LichborneTrackerDB.rows[di].cls ~= "Warrior" then
-            LichborneTrackerDB.rows[di].ilvl[g] = 0
-            LichborneTrackerDB.rows[di].ilvlLink[g] = ""
+            itemLevels[g] = 0
+            itemLinks[g] = ""
             slotDiag[g] = string.format("%-5s", PBM.SLOT_ABBR[g]).."(s17)=|cff888888[2H-OH]|r"
         else
             local link = GetInventoryItemLink(inspUnit, slot)
@@ -92,12 +83,12 @@ local function CalcGS()
                     cachedCount = cachedCount + 1
                     total = total + itemIlvl
                     count = count + 1
-                    LichborneTrackerDB.rows[di].ilvl[g] = itemIlvl
-                    LichborneTrackerDB.rows[di].ilvlLink[g] = link
+                    itemLevels[g] = itemIlvl
+                    itemLinks[g] = link
                     slotDiag[g] = string.format("%-5s", PBM.SLOT_ABBR[g]).."(s"..slot..")=|cff44ff44"..itemIlvl.."|r"
                 else
-                    LichborneTrackerDB.rows[di].ilvl[g] = 0
-                    LichborneTrackerDB.rows[di].ilvlLink[g] = link
+                    itemLevels[g] = 0
+                    itemLinks[g] = link
                     if itemName then
                         -- Link cached but iLvl=0 (PvP trinket, quest item, relic, etc.)
                         zeroIlvlCount = zeroIlvlCount + 1
@@ -113,8 +104,8 @@ local function CalcGS()
             else
                 emptyCount = emptyCount + 1
                 if slot == 3 then shoulderMissing = true end
-                LichborneTrackerDB.rows[di].ilvl[g] = 0
-                LichborneTrackerDB.rows[di].ilvlLink[g] = ""
+                itemLevels[g] = 0
+                itemLinks[g] = ""
                 slotDiag[g] = string.format("%-5s", PBM.SLOT_ABBR[g]).."(s"..slot..")=|cff555555NIL|r"
             end
         end
@@ -148,8 +139,13 @@ local function CalcGS()
         PBM.State.LichborneCacheRetries = 0
     end
 
+    if count > 0 then
+        LichborneTrackerDB.rows[di].ilvl = itemLevels
+        LichborneTrackerDB.rows[di].ilvlLink = itemLinks
+    end
+
     for _, row in ipairs(PBM.State.rowFrames) do
-        if row.dbIndex == di and row.gearBoxes then
+        if count > 0 and row.dbIndex == di and row.gearBoxes then
             for g = 1, 17 do
                 local v = LichborneTrackerDB.rows[di].ilvl[g] or 0
                 if row.gearBoxes[g] then
@@ -239,9 +235,8 @@ local function CalcGS()
         PBM.State.LichborneInspectRetries = PBM.State.LichborneInspectRetries + 1
         local unit = PBM.State.LichborneInspectUnit or "target"
         local unitExists = UnitExists(unit)
-        local maxGsRetries = PBM.State.LichborneGroupScanActive and 1 or 0
-        PBM.DBG("|cffff4444No slot data for |r|cffffff88"..rowName.."|r — retry "..PBM.State.LichborneInspectRetries.."/"..maxGsRetries.." UnitExists=|cffffff88"..tostring(unitExists).."|r links="..linkCount)
-        if PBM.State.LichborneInspectRetries < maxGsRetries then
+        PBM.DBG("|cffff4444No slot data for |r|cffffff88"..rowName.."|r — retry "..PBM.State.LichborneInspectRetries.."/"..INSPECT_MAX_RETRIES.." UnitExists=|cffffff88"..tostring(unitExists).."|r links="..linkCount)
+        if PBM.State.LichborneInspectRetries <= INSPECT_MAX_RETRIES then
             if unitExists then
                 InspectUnit(unit)
                 PBM.DBG("Re-fired InspectUnit("..unit..") for |cffffff88"..rowName.."|r")
@@ -297,6 +292,5 @@ inspectFrame:SetScript("OnEvent", function(_, event, guid)
         PBM.DBG("INSPECT_READY (GS) for |cffffff88"..(LichborneTrackerDB.rows[di] and LichborneTrackerDB.rows[di].name or "?").."|r GUID="..guidInfo)
     end
     PBM.State.inspectWait = 0
-    PBM.State.LichborneInspectRetries = 0  -- fresh INSPECT_READY means fresh data incoming
     CalcGS()
 end)

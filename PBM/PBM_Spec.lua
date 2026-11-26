@@ -56,9 +56,11 @@ local function CalcSpec()
     -- Try the direct tab points API
     local tabPts = {0, 0, 0}
     local gotTabData = false
+    local knownTabs = 0
     for tab = 1, 3 do
         local tabName, _, pts = GetTalentTabInfo(tab, inspFlag, false, activeGroup)
         if pts == nil then PBM.DBG("|cffff4444[NIL]|r GetTalentTabInfo(tab="..tab..") pts=nil (tabName=|cffffff88"..(tabName or "nil").."|r)") end
+        if tabName and pts ~= nil then knownTabs = knownTabs + 1 end
         if pts and pts > 0 then
             tabPts[tab] = pts
             gotTabData = true
@@ -79,23 +81,26 @@ local function CalcSpec()
         end
     end
 
-    if bestPoints == 0 then
+    if bestPoints == 0 and knownTabs < 3 then
         PBM.State.specRetries = PBM.State.specRetries + 1
-        local maxSpecRetries = PBM.State.LichborneGroupScanActive and 1 or 0
+        local maxSpecRetries = 1
         PBM.DBG("|cffff4444Spec talent data = 0/0/0 for |r|cffffff88"..(rowData.name or "?").."|r — retry "..PBM.State.specRetries.."/"..maxSpecRetries)
-        if PBM.State.specRetries >= maxSpecRetries then
+        if PBM.State.specRetries > maxSpecRetries then
             PBM.DBG("|cffff4444FAILED spec for |r|cffffff88"..(rowData.name or "?").."|r — all trees 0 after "..maxSpecRetries.." retries")
             LichborneOutput("|cffff4444"..(rowData.name or "?")..":|r |cffff4444FAILED — could not read talent data.|r", 1, 0.5, 0.5)
             if LichborneAddStatus then
                 LichborneAddStatus:SetText("|cffff4444Talent data unavailable. Try standing closer.|r")
             end
             PBM.State.LichborneSpecTarget = nil; PBM.State.specRetries = 0
+        elseif not inspectSelf then
+            InspectUnit(unit)
         end
         return
     end
 
     PBM.State.specRetries = 0
-    local specName = specNames[best] or ""
+    local specName = bestPoints > 0 and (specNames[best] or "") or ""
+    local specLabel = specName ~= "" and specName or "Unassigned"
     local prevSpec = rowData.spec or ""
     rowData.spec = specName
     PBM.DBG("DB write spec |cffffff88"..(rowData.name or "?").."|r: "..(prevSpec~=specName and "|cffff9900"..prevSpec.."|r->|cff44ff44"..specName.."|r" or "|cffaaaaaa"..specName.."|r (unchanged)"))
@@ -103,9 +108,9 @@ local function CalcSpec()
     local c = PBM.CLASS_COLORS[cls]
     local hex = c and string.format("|cff%02x%02x%02x", math.floor(c.r*255), math.floor(c.g*255), math.floor(c.b*255)) or "|cffffffff"
     if LichborneAddStatus then
-        LichborneAddStatus:SetText(hex..(rowData.name or "?").."|r — Specialization: |cffffff00"..specName.."|r ("..bestPoints.." pts)")
+        LichborneAddStatus:SetText(hex..(rowData.name or "?").."|r — Specialization: |cffffff00"..specLabel.."|r ("..bestPoints.." pts)")
     end
-    LichborneOutput(hex..(rowData.name or "?").."|r: |cffffff00"..specName.."|r ("..bestPoints.." pts)", 1, 0.85, 0)
+    LichborneOutput(hex..(rowData.name or "?").."|r: |cffffff00"..specLabel.."|r ("..bestPoints.." pts)", 1, 0.85, 0)
     PBM.DBG("|cff44ff44SUCCESS|r spec |cffffff88"..(rowData.name or "?").."|r = |cffffff00"..specName.."|r tree"..best.." ("..bestPoints.." pts)")
     PBM.DBG("CalcSpec elapsed: |cffffff88"..string.format("%.3f", GetTime()-specStartTime).."s|r")
 
