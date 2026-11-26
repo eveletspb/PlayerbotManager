@@ -81,6 +81,21 @@ function PBM.BuildLevelSyncPanel(lsPanel, ctx)
     local commitRemaining = 0
     local lsRebuildGrid   -- forward declaration; assigned after grid is built
 
+    local function IsStatusHeader(line)
+        return line:match("^%[LevelSync%] Sync Group #%d+$") ~= nil
+    end
+
+    local function IsStatusLine(line)
+        return line:match("^%s+Accounts: %d+/%d+$")
+            or line:match("^%s+Total Characters: %d+$")
+            or line:match("^%s+Level sync: %a+$")
+            or line:match("^%s+Progression sync: %a+$")
+            or line:match("^%s+Account %d+: Characters: %d+$")
+            or line:match("^%s+.-%s+%(lvl %d+%)%s+%(.-%)%s+IP Tier: .+$")
+            or line == "[LevelSync] Group members:"
+            or line:find("[LevelSync] For a graphical interface use the addon:", 1, true) == 1
+    end
+
     local commitFrame = CreateFrame("Frame", nil, UIParent)
     commitFrame:Hide()
 
@@ -152,7 +167,14 @@ function PBM.BuildLevelSyncPanel(lsPanel, ctx)
     lsEventFrame:SetScript("OnEvent", function(self, event, msg)
         local clean = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
 
-        if sm.active then
+        if IsStatusHeader(clean) then
+            sm.active = true
+            sm.lines = { clean }
+            ArmCommitTimer()
+            return
+        end
+
+        if sm.active and IsStatusLine(clean) then
             table.insert(sm.lines, clean)
             ArmCommitTimer()
             return
@@ -161,6 +183,8 @@ function PBM.BuildLevelSyncPanel(lsPanel, ctx)
         if not clean:find("%[LevelSync%]") then return end
 
         if clean:find("Sync group disbanded") or clean:find("You are not in a sync group") then
+            sm.active = false
+            sm.lines = {}
             local d = lsData
             d.inGroup     = false; d.groupId     = nil
             d.accountsCur = 0;     d.accountsMax = 0
@@ -170,26 +194,13 @@ function PBM.BuildLevelSyncPanel(lsPanel, ctx)
             return
         end
 
-        if clean:find("Sync Group #") then
-            sm.active = true
-            sm.lines  = { clean }
-            ArmCommitTimer()
-            return
-        end
     end)
 
     -- ── Chat filter: suppress status block from the chat frame ─
     local function PBM_LevelSyncFilter(_, _, msg)
         local clean = msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
 
-        if sm.active then
-            if not clean:find("%[LevelSync%]") then return true end
-            if clean:find("Sync Group #") or clean:find("Group members")
-               or clean:find("graphical interface") then return true end
-            return
-        end
-
-        if clean:find("%[LevelSync%]") and clean:find("Sync Group #") then
+        if IsStatusHeader(clean) or (sm.active and IsStatusLine(clean)) then
             return true
         end
     end
